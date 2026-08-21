@@ -1,0 +1,18 @@
+# Go
+*.exe
+*.test
+*.out
+
+docs/
+
+# Banco e dados gerados
+*.db
+*.db-wal
+*.db-shm
+
+# Saída e logs
+output/
+logs/
+
+# Ambiente
+.env
