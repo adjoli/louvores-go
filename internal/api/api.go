@@ -7,6 +7,7 @@
 package api
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -16,6 +17,18 @@ import (
 	"github.com/adjoli/louvores-go/internal/repository"
 	"github.com/adjoli/louvores-go/internal/services"
 )
+
+// openapiSpec contém a especificação OpenAPI da API, embutida no binário e
+// servida crua em /api/openapi.yaml.
+//
+//go:embed openapi.yaml
+var openapiSpec []byte
+
+// docsHTML é a página do Swagger UI que carrega os assets via CDN e consome
+// a especificação embutida.
+//
+//go:embed docs.html
+var docsHTML []byte
 
 // API é o container dos handlers REST, alimentado pelos serviços via DI.
 type API struct {
@@ -31,16 +44,34 @@ func New(hinoSvc *services.HinoService, statsSvc *services.StatsService) *API {
 	}
 }
 
+// rota associa um padrão "METHOD /caminho/{param}" ao seu handler.
+type rota struct {
+	padrao  string
+	handler func(http.ResponseWriter, *http.Request)
+}
+
+// rotas é a fonte única das rotas registradas — consumida por Routes() para
+// montar o mux e pelos testes de paridade contra a spec OpenAPI.
+func (a *API) rotas() []rota {
+	return []rota{
+		{padrao: "GET /api/healthz", handler: a.handleHealth},
+		{padrao: "GET /api/coletaneas", handler: a.handleListarColetaneas},
+		{padrao: "GET /api/coletaneas/{codigo}/hinos", handler: a.handleListarHinos},
+		{padrao: "GET /api/coletaneas/{codigo}/hinos/{numero}", handler: a.handleObterHino},
+		{padrao: "GET /api/stats", handler: a.handleStats},
+		{padrao: "GET /api/openapi.yaml", handler: a.handleOpenAPISpec},
+		{padrao: "GET /api/docs", handler: a.handleDocs},
+	}
+}
+
 // Routes monta e retorna o roteador HTTP com todos os endpoints da API.
 // Usa o ServeMux da stdlib (Go 1.22+) com padrões "METHOD /caminho/{param}".
 func (a *API) Routes() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /api/healthz", a.handleHealth)
-	mux.HandleFunc("GET /api/coletaneas", a.handleListarColetaneas)
-	mux.HandleFunc("GET /api/coletaneas/{codigo}/hinos", a.handleListarHinos)
-	mux.HandleFunc("GET /api/coletaneas/{codigo}/hinos/{numero}", a.handleObterHino)
-	mux.HandleFunc("GET /api/stats", a.handleStats)
+	for _, rota := range a.rotas() {
+		mux.HandleFunc(rota.padrao, rota.handler)
+	}
 
 	return mux
 }
@@ -102,6 +133,27 @@ func (a *API) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, stats)
+}
+
+// handleOpenAPISpec serve a especificação OpenAPI embutida, em YAML cru.
+func (a *API) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	if _, err := w.Write(openapiSpec); err != nil {
+		slog.Error("servir especificação OpenAPI", "erro", err)
+	}
+}
+
+// handleDocs serve a página interativa do Swagger UI (assets via CDN),
+// configurada para consumir /api/openapi.yaml.
+func (a *API) handleDocs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	if _, err := w.Write(docsHTML); err != nil {
+		slog.Error("servir documentação HTML", "erro", err)
+	}
 }
 
 // writeJSON serializa v como resposta JSON com o status informado.

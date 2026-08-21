@@ -1,0 +1,262 @@
+openapi: 3.0.3
+info:
+  title: Louvores API
+  version: 0.1.0
+  description: |
+    API REST (somente leitura) do acervo de hinos.
+
+    Convenções:
+    - A chave de negócio de um hino é o par **código da coletânea + número** (ex.: `CC/42`).
+    - `id` e `coletanea_id` são identificadores internos do banco; a navegação
+      pública usa sempre `codigo` + `numero`.
+    - Campos opcionais sem valor no banco (`numeracao`, `letra`, `creditos`)
+      são serializados como `null` explícito, nunca omitidos.
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /api/healthz:
+    get:
+      summary: Liveness do serviço.
+      operationId: healthz
+      responses:
+        '200':
+          description: Serviço operacional.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+  /api/coletaneas:
+    get:
+      summary: Lista as coletâneas cadastradas.
+      operationId: listarColetaneas
+      responses:
+        '200':
+          description: Coletâneas ordenadas por identificador interno.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Coletanea'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+
+  /api/coletaneas/{codigo}/hinos:
+    get:
+      summary: Lista os hinos de uma coletânea, ordenados pela numeração.
+      operationId: listarHinosDaColetanea
+      parameters:
+        - $ref: '#/components/parameters/CodigoColetanea'
+      responses:
+        '200':
+          description: Hinos da coletânea (a lista pode ser vazia).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Hino'
+        '404':
+          description: Coletânea inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+
+  /api/coletaneas/{codigo}/hinos/{numero}:
+    get:
+      summary: Detalhe de um hino pela chave de negócio (código + número).
+      operationId: obterHino
+      parameters:
+        - $ref: '#/components/parameters/CodigoColetanea'
+        - name: numero
+          in: path
+          required: true
+          description: Numeração do hino dentro da coletânea.
+          schema:
+            type: integer
+          example: 42
+      responses:
+        '200':
+          description: Hino encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hino'
+              example:
+                id: 123
+                coletanea_id: 1
+                numeracao: 42
+                titulo: Grande é o Senhor
+                letra: "Primeira estrofe...\n\n   Refrão indentado..."
+                creditos: 'Letra e música: autor desconhecido'
+                revisado: true
+        '400':
+          description: O número não é um inteiro válido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: número inválido
+        '404':
+          description: Hino ou coletânea inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+
+  /api/stats:
+    get:
+      summary: Estatísticas agregadas por coletânea.
+      operationId: estatisticas
+      responses:
+        '200':
+          description: Uma linha por coletânea que possui hinos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StatsColetanea'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+
+  /api/openapi.yaml:
+    get:
+      summary: Este documento (OpenAPI 3.0.3 em YAML).
+      operationId: openapiYaml
+      responses:
+        '200':
+          description: Especificação embutida no binário.
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  /api/docs:
+    get:
+      summary: Swagger UI interativo (assets carregados via CDN).
+      operationId: documentacaoInterativa
+      responses:
+        '200':
+          description: Página HTML que consome /api/openapi.yaml.
+          content:
+            text/html:
+              schema:
+                type: string
+
+components:
+  parameters:
+    CodigoColetanea:
+      name: codigo
+      in: path
+      required: true
+      description: 'Código da coletânea (ex.: CC).'
+      schema:
+        type: string
+      example: CC
+
+  responses:
+    ErroInterno:
+      description: Erro interno (detalhes vão apenas para o log do servidor).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
+    Erro:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: hino não encontrado
+
+    Coletanea:
+      type: object
+      required: [id, codigo, titulo]
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Identificador interno.
+        codigo:
+          type: string
+          example: CC
+        titulo:
+          type: string
+          example: Cantor Cristão
+
+    Hino:
+      type: object
+      required: [id, coletanea_id, titulo, revisado]
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Identificador interno.
+        coletanea_id:
+          type: integer
+          format: int64
+          description: Identificador interno da coletânea pai.
+        numeracao:
+          type: integer
+          nullable: true
+          description: Número do hino na coletânea; null quando não numerado.
+          example: 42
+        titulo:
+          type: string
+        letra:
+          type: string
+          nullable: true
+          description: Letra completa; null enquanto não cadastrada/revisada.
+        creditos:
+          type: string
+          nullable: true
+        revisado:
+          type: boolean
+          description: true quando a letra passou por revisão humana.
+
+    StatsColetanea:
+      type: object
+      required: [codigo, titulo, total, com_letra, revisados, nao_revisados, percentual]
+      properties:
+        codigo:
+          type: string
+          example: CC
+        titulo:
+          type: string
+          example: Cantor Cristão
+        total:
+          type: integer
+          description: Total de hinos da coletânea.
+        com_letra:
+          type: integer
+          description: Hinos com letra cadastrada.
+        revisados:
+          type: integer
+          description: Hinos com letra revisada.
+        nao_revisados:
+          type: integer
+          description: com_letra − revisados.
+        percentual:
+          type: number
+          format: double
+          description: Percentual de hinos com letra (com_letra ÷ total × 100).
+          example: 50.0

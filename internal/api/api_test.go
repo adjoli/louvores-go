@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/adjoli/louvores-go/internal/database"
@@ -25,7 +27,6 @@ func newTestHandler(t *testing.T) http.Handler {
 	if err := database.Migrate(conn); err != nil {
 		t.Fatalf("migrar: %v", err)
 	}
-	conn.SetMaxOpenConns(1)
 
 	ctx := context.Background()
 	coletaneaRepo := repository.NewColetaneaRepository(conn)
@@ -190,5 +191,93 @@ func TestStatsEndpoint(t *testing.T) {
 	}
 	if s.Percentual != 50 {
 		t.Errorf("percentual = %v, want 50", s.Percentual)
+	}
+}
+
+func TestOpenAPISpecEndpoint(t *testing.T) {
+	handler := newTestHandler(t)
+
+	res := doRequest(handler, http.MethodGet, "/api/openapi.yaml")
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusOK)
+	}
+	if ct := res.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/yaml") {
+		t.Errorf("content-type = %q, want application/yaml", ct)
+	}
+	if !strings.Contains(res.Body.String(), "/api/coletaneas/{codigo}/hinos") {
+		t.Error("spec servida não contém os paths esperados")
+	}
+}
+
+func TestDocsEndpoint(t *testing.T) {
+	handler := newTestHandler(t)
+
+	res := doRequest(handler, http.MethodGet, "/api/docs")
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusOK)
+	}
+	if ct := res.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+		t.Errorf("content-type = %q, want text/html", ct)
+	}
+	if !strings.Contains(res.Body.String(), "SwaggerUIBundle") {
+		t.Error("página não referencia o Swagger UI")
+	}
+}
+
+// TestContratoJSONSnakeCase trava o contrato público da API: as chaves
+// serializadas são as tags json (snake_case) e campos opcionais nulos
+// aparecem como null explícito.
+func TestContratoJSONSnakeCase(t *testing.T) {
+	handler := newTestHandler(t)
+
+	res := doRequest(handler, http.MethodGet, "/api/coletaneas/CC/hinos")
+
+	corpo := res.Body.String()
+	for _, chave := range []string{
+		`"id"`, `"coletanea_id"`, `"numeracao"`, `"titulo"`,
+		`"letra"`, `"creditos"`, `"revisado"`,
+	} {
+		if !strings.Contains(corpo, chave) {
+			t.Errorf("chave %s ausente na resposta: %s", chave, corpo)
+		}
+	}
+}
+
+// TestParidadeRotasSpec compara os paths declarados na spec OpenAPI embutida
+// com as rotas efetivamente registradas no mux — evita documentação
+// desatualizada quando uma rota entra ou sai sem tocar o YAML.
+func TestParidadeRotasSpec(t *testing.T) {
+	api := &API{}
+
+	padroes := make(map[string]bool, len(api.rotas()))
+	for _, rota := range api.rotas() {
+		metodo, caminho, ok := strings.Cut(rota.padrao, " ")
+		if !ok || metodo != http.MethodGet {
+			t.Fatalf("padrão inesperado: %q", rota.padrao)
+		}
+		padroes[caminho] = true
+	}
+
+	re := regexp.MustCompile(`(?m)^  (/.+):$`)
+	spec := make(map[string]bool)
+	for _, m := range re.FindAllStringSubmatch(string(openapiSpec), -1) {
+		spec[m[1]] = true
+	}
+
+	if len(spec) == 0 {
+		t.Fatal("nenhum path extraído da spec OpenAPI")
+	}
+
+	for caminho := range padroes {
+		if !spec[caminho] {
+			t.Errorf("rota registrada ausente na spec: %s", caminho)
+		}
+	}
+	for caminho := range spec {
+		if !padroes[caminho] {
+			t.Errorf("path documentado sem rota registrada: %s", caminho)
+		}
 	}
 }
