@@ -36,8 +36,12 @@ louvores    # sobe o servidor HTTP (padrão :8080)
 | `GET` | `/api/coletaneas/{codigo}/hinos` | hinos da coletânea, ordenados pela numeração |
 | `GET` | `/api/coletaneas/{codigo}/hinos/{numero}` | detalhe do hino (ex.: CC/42) |
 | `GET` | `/api/stats` | estatísticas agregadas por coletânea |
+| `GET` | `/api/openapi.yaml` | especificação OpenAPI (embutida no binário) |
+| `GET` | `/api/docs` | documentação interativa (Swagger UI) |
 
-Erros retornam `{"error": "..."}` com status 404 (coletânea/hino inexistente), 400 (número inválido) ou 500.
+A documentação interativa fica em http://localhost:8080/api/docs — os assets do Swagger UI são carregados via CDN.
+
+Erros retornam `{"error": "..."}` com status 404 (coletânea/hino inexistente), 400 (número inválido) ou 500. O contrato JSON usa snake_case; campos opcionais ausentes no banco são serializados como `null`. Um teste garante a paridade entre as rotas registradas e a spec OpenAPI.
 
 ## Dados
 
