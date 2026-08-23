@@ -29,13 +29,13 @@ func newTestHandler(t *testing.T) http.Handler {
 	}
 
 	ctx := context.Background()
-	coletaneaRepo := repository.NewColetaneaRepository(conn)
+	coletaneaRepo := repository.NewSQLiteColetaneaRepository(conn)
 	coletanea := &models.Coletanea{Codigo: "CC", Titulo: "Cantor Cristão"}
 	if err := coletaneaRepo.Create(ctx, coletanea); err != nil {
 		t.Fatalf("criar coletânea: %v", err)
 	}
 
-	hinoRepo := repository.NewHinoRepository(conn)
+	hinoRepo := repository.NewSQLiteHinoRepository(conn)
 	num := 42
 	letra := "Estrofe um\n\n    Refrão"
 	if err := hinoRepo.Create(ctx, &models.Hino{

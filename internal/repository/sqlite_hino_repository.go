@@ -40,22 +40,22 @@ func scanHino(row rowScanner) (*models.Hino, error) {
 	return hino, nil
 }
 
-// HinoRepository é o repositório de persistência de hinos.
+// SQLiteHinoRepository é o repositório de persistência de hinos (implementação SQLite).
 // Ele encapsula as operações SQL e mapeia resultados para models.Hino.
-type HinoRepository struct {
+type SQLiteHinoRepository struct {
 	db *sql.DB
 }
 
-// NewHinoRepository cria um novo HinoRepository com a conexão de banco fornecida.
-func NewHinoRepository(db *sql.DB) *HinoRepository {
-	return &HinoRepository{
+// NewSQLiteHinoRepository cria um novo SQLiteHinoRepository com a conexão de banco fornecida.
+func NewSQLiteHinoRepository(db *sql.DB) *SQLiteHinoRepository {
+	return &SQLiteHinoRepository{
 		db: db,
 	}
 }
 
 // Create insere um novo hino no banco e popula o campo ID
 // do objeto passado como referência.
-func (r *HinoRepository) Create(
+func (r *SQLiteHinoRepository) Create(
 	ctx context.Context,
 	hino *models.Hino,
 ) error {
@@ -85,7 +85,7 @@ func (r *HinoRepository) Create(
 
 // FindByID busca um hino pelo seu ID.
 // Retorna ErrHinoNotFound se o hino não existir.
-func (r *HinoRepository) FindByID(
+func (r *SQLiteHinoRepository) FindByID(
 	ctx context.Context,
 	id int64,
 ) (*models.Hino, error) {
@@ -108,7 +108,7 @@ func (r *HinoRepository) FindByID(
 
 // List retorna todos os hinos.
 // O resultado é ordenado por ID crescente.
-func (r *HinoRepository) List(
+func (r *SQLiteHinoRepository) List(
 	ctx context.Context,
 ) ([]models.Hino, error) {
 	rows, err := r.db.QueryContext(
@@ -140,7 +140,7 @@ func (r *HinoRepository) List(
 
 // Update atualiza os dados de um hino existente.
 // Retorna ErrHinoNotFound se o ID não existir no banco.
-func (r *HinoRepository) Update(
+func (r *SQLiteHinoRepository) Update(
 	ctx context.Context,
 	hino *models.Hino,
 ) error {
@@ -173,7 +173,7 @@ func (r *HinoRepository) Update(
 
 // Delete remove um hino pelo seu ID.
 // Retorna ErrHinoNotFound se o ID não existir no banco.
-func (r *HinoRepository) Delete(
+func (r *SQLiteHinoRepository) Delete(
 	ctx context.Context,
 	id int64,
 ) error {
@@ -208,7 +208,7 @@ type StatsRow struct {
 // StatsPorColetanea agrega, por coletânea, o total de hinos, os que têm
 // letra e os revisados — tudo em uma única consulta com GROUP BY, evitando
 // N+1 consultas por coletânea.
-func (r *HinoRepository) StatsPorColetanea(
+func (r *SQLiteHinoRepository) StatsPorColetanea(
 	ctx context.Context,
 ) ([]StatsRow, error) {
 	rows, err := r.db.QueryContext(
@@ -248,7 +248,7 @@ func (r *HinoRepository) StatsPorColetanea(
 
 // ListByColetanea retorna todos os hinos pertencentes à coletânea
 // informada, ordenados pela numeração.
-func (r *HinoRepository) ListByColetanea(
+func (r *SQLiteHinoRepository) ListByColetanea(
 	ctx context.Context,
 	coletaneaID int64,
 ) ([]models.Hino, error) {
@@ -283,7 +283,7 @@ func (r *HinoRepository) ListByColetanea(
 // FindByNumero busca um hino pela combinação de coletânea e numeração —
 // a chave de negócio usada na interface (ex.: CC/42).
 // Retorna ErrHinoNotFound se não houver hino correspondente.
-func (r *HinoRepository) FindByNumero(
+func (r *SQLiteHinoRepository) FindByNumero(
 	ctx context.Context,
 	coletaneaID int64,
 	numero int,

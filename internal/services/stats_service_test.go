@@ -9,7 +9,7 @@ import (
 	"github.com/adjoli/louvores-go/internal/repository"
 )
 
-func seedHinoRepo(t *testing.T) *repository.HinoRepository {
+func seedHinoRepo(t *testing.T) *repository.SQLiteHinoRepository {
 	t.Helper()
 	conn, err := database.Open(":memory:")
 	if err != nil {
@@ -21,7 +21,7 @@ func seedHinoRepo(t *testing.T) *repository.HinoRepository {
 	}
 
 	ctx := context.Background()
-	coletaneaRepo := repository.NewColetaneaRepository(conn)
+	coletaneaRepo := repository.NewSQLiteColetaneaRepository(conn)
 	coletanea := &models.Coletanea{Codigo: "CC", Titulo: "Cantor Cristão"}
 	if err := coletaneaRepo.Create(ctx, coletanea); err != nil {
 		t.Fatalf("criar coletânea: %v", err)
@@ -30,7 +30,7 @@ func seedHinoRepo(t *testing.T) *repository.HinoRepository {
 	num := 42
 	letra := "Estrofe um\n\n    Refrão"
 	creditos := "Autor"
-	hinoRepo := repository.NewHinoRepository(conn)
+	hinoRepo := repository.NewSQLiteHinoRepository(conn)
 	if err := hinoRepo.Create(ctx, &models.Hino{
 		ColetaneaID: coletanea.ID,
 		Numeracao:   &num,

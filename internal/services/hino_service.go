@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/adjoli/louvores-go/internal/models"
-	"github.com/adjoli/louvores-go/internal/repository"
 )
 
 // HinoService concentra as operações de leitura sobre coletâneas e hinos.
@@ -12,17 +11,17 @@ import (
 // Ele resolve a navegação pela chave de negócio (código da coletânea +
 // numeração do hino, ex.: CC/42), traduzindo-a para os IDs internos usados
 // pelo repositório. Os erros sentinela do repositório
-// (repository.ErrColetaneaNotFound, repository.ErrHinoNotFound) propagam
+// (ErrColetaneaNotFound, ErrHinoNotFound) propagam
 // sem alteração para que a camada superior os mapeie para respostas HTTP.
 type HinoService struct {
-	hinoRepo      *repository.HinoRepository
-	coletaneaRepo *repository.ColetaneaRepository
+	hinoRepo      HinoRepository
+	coletaneaRepo ColetaneaRepository
 }
 
 // NewHinoService cria um novo HinoService com os repositórios fornecidos.
 func NewHinoService(
-	hinoRepo *repository.HinoRepository,
-	coletaneaRepo *repository.ColetaneaRepository,
+	hinoRepo HinoRepository,
+	coletaneaRepo ColetaneaRepository,
 ) *HinoService {
 	return &HinoService{
 		hinoRepo:      hinoRepo,

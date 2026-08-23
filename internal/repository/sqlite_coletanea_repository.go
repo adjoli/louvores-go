@@ -8,22 +8,22 @@ import (
 	"github.com/adjoli/louvores-go/internal/models"
 )
 
-// ColetaneaRepository é o repositório de persistência de coletâneas.
+// SQLiteColetaneaRepository é o repositório de persistência de coletâneas (implementação SQLite).
 // Ele encapsula as operações SQL e mapeia resultados para models.Coletanea.
-type ColetaneaRepository struct {
+type SQLiteColetaneaRepository struct {
 	db *sql.DB
 }
 
-// NewColetaneaRepository cria um novo ColetaneaRepository com a conexão de banco fornecida.
-func NewColetaneaRepository(db *sql.DB) *ColetaneaRepository {
-	return &ColetaneaRepository{
+// NewSQLiteColetaneaRepository cria um novo SQLiteColetaneaRepository com a conexão de banco fornecida.
+func NewSQLiteColetaneaRepository(db *sql.DB) *SQLiteColetaneaRepository {
+	return &SQLiteColetaneaRepository{
 		db: db,
 	}
 }
 
 // Create insere uma nova coletanea no banco e popula o campo ID
 // do objeto passado como referência.
-func (r *ColetaneaRepository) Create(
+func (r *SQLiteColetaneaRepository) Create(
 	ctx context.Context,
 	coletanea *models.Coletanea,
 ) error {
@@ -49,7 +49,7 @@ func (r *ColetaneaRepository) Create(
 
 // FindByID busca uma coletanea pelo seu ID.
 // Retorna ErrColetaneaNotFound se a coletanea não existir.
-func (r *ColetaneaRepository) FindByID(
+func (r *SQLiteColetaneaRepository) FindByID(
 	ctx context.Context,
 	id int64,
 ) (*models.Coletanea, error) {
@@ -77,7 +77,7 @@ func (r *ColetaneaRepository) FindByID(
 
 // List retorna todas as coletâneas.
 // O resultado é ordenado por ID crescente.
-func (r *ColetaneaRepository) List(
+func (r *SQLiteColetaneaRepository) List(
 	ctx context.Context,
 ) ([]models.Coletanea, error) {
 	rows, err := r.db.QueryContext(
@@ -114,7 +114,7 @@ func (r *ColetaneaRepository) List(
 
 // FindByCodigo busca uma coletanea pelo seu código curto (ex.: "CC").
 // Retorna ErrColetaneaNotFound se não houver coletanea com o código.
-func (r *ColetaneaRepository) FindByCodigo(
+func (r *SQLiteColetaneaRepository) FindByCodigo(
 	ctx context.Context,
 	codigo string,
 ) (*models.Coletanea, error) {
@@ -142,7 +142,7 @@ func (r *ColetaneaRepository) FindByCodigo(
 
 // Update atualiza os dados de uma coletanea existente.
 // Retorna ErrColetaneaNotFound se o ID não existir no banco.
-func (r *ColetaneaRepository) Update(
+func (r *SQLiteColetaneaRepository) Update(
 	ctx context.Context,
 	coletanea *models.Coletanea,
 ) error {
@@ -171,7 +171,7 @@ func (r *ColetaneaRepository) Update(
 
 // Delete remove uma coletanea pelo seu ID.
 // Retorna ErrColetaneaNotFound se o ID não existir no banco.
-func (r *ColetaneaRepository) Delete(
+func (r *SQLiteColetaneaRepository) Delete(
 	ctx context.Context,
 	id int64,
 ) error {

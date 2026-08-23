@@ -99,8 +99,8 @@ func New() (*App, error) {
 		return nil, fmt.Errorf("aplicar schema: %w", err)
 	}
 
-	hinoRepo := repository.NewHinoRepository(db)
-	coletaneaRepo := repository.NewColetaneaRepository(db)
+	hinoRepo := repository.NewSQLiteHinoRepository(db)
+	coletaneaRepo := repository.NewSQLiteColetaneaRepository(db)
 
 	return &App{
 		cfg:      cfg,

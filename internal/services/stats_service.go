@@ -2,13 +2,11 @@ package services
 
 import (
 	"context"
-
-	"github.com/adjoli/louvores-go/internal/repository"
 )
 
 // ColetaneaStats é a visão agregada de uma coletânea para o endpoint /api/stats.
 // Os campos derivados (NaoRevisados, Percentual) são calculados aqui, a partir
-// da linha crua do repositório (repository.StatsRow).
+// da linha crua do repositório (StatsRow).
 type ColetaneaStats struct {
 	Codigo       string  `json:"codigo"`
 	Titulo       string  `json:"titulo"`
@@ -20,10 +18,10 @@ type ColetaneaStats struct {
 }
 
 type StatsService struct {
-	repo *repository.HinoRepository
+	repo HinoRepository
 }
 
-func NewStatsService(repo *repository.HinoRepository) *StatsService {
+func NewStatsService(repo HinoRepository) *StatsService {
 	return &StatsService{repo: repo}
 }
 

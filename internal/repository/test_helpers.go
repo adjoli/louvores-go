@@ -27,27 +27,27 @@ func newTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func newTestHinoRepository(t *testing.T) *HinoRepository {
+func newTestHinoRepository(t *testing.T) *SQLiteHinoRepository {
 	t.Helper()
 
-	return NewHinoRepository(newTestDB(t))
+	return NewSQLiteHinoRepository(newTestDB(t))
 }
 
-func newTestColetaneaRepository(t *testing.T) *ColetaneaRepository {
+func newTestColetaneaRepository(t *testing.T) *SQLiteColetaneaRepository {
 	t.Helper()
 
-	return NewColetaneaRepository(newTestDB(t))
+	return NewSQLiteColetaneaRepository(newTestDB(t))
 }
 
 func newTestRepositories(t *testing.T) (
-	*ColetaneaRepository,
-	*HinoRepository,
+	*SQLiteColetaneaRepository,
+	*SQLiteHinoRepository,
 ) {
 	t.Helper()
 
 	db := newTestDB(t)
 
-	return NewColetaneaRepository(db), NewHinoRepository(db)
+	return NewSQLiteColetaneaRepository(db), NewSQLiteHinoRepository(db)
 
 }
 

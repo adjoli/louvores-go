@@ -12,7 +12,7 @@ import (
 
 // seedHinos cria um banco em memória com a coletânea "CC" e dois hinos:
 // 42 com letra e 43 sem letra. Retorna os dois repositórios populados.
-func seedHinos(t *testing.T) (*repository.HinoRepository, *repository.ColetaneaRepository) {
+func seedHinos(t *testing.T) (*repository.SQLiteHinoRepository, *repository.SQLiteColetaneaRepository) {
 	t.Helper()
 	conn, err := database.Open(":memory:")
 	if err != nil {
@@ -24,7 +24,7 @@ func seedHinos(t *testing.T) (*repository.HinoRepository, *repository.ColetaneaR
 	}
 
 	ctx := context.Background()
-	coletaneaRepo := repository.NewColetaneaRepository(conn)
+	coletaneaRepo := repository.NewSQLiteColetaneaRepository(conn)
 	coletanea := &models.Coletanea{Codigo: "CC", Titulo: "Cantor Cristão"}
 	if err := coletaneaRepo.Create(ctx, coletanea); err != nil {
 		t.Fatalf("criar coletânea: %v", err)
@@ -32,7 +32,7 @@ func seedHinos(t *testing.T) (*repository.HinoRepository, *repository.ColetaneaR
 
 	num := 42
 	letra := "Estrofe um\n\n    Refrão"
-	hinoRepo := repository.NewHinoRepository(conn)
+	hinoRepo := repository.NewSQLiteHinoRepository(conn)
 	if err := hinoRepo.Create(ctx, &models.Hino{
 		ColetaneaID: coletanea.ID,
 		Numeracao:   &num,
