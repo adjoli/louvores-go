@@ -7,8 +7,10 @@ docs/
 
 # Banco e dados gerados
 *.db
-*.db-wal
+*.db-info
 *.db-shm
+*.db-wal
+
 
 # Saída e logs
 output/

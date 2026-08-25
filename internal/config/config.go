@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
 
 const (
 	// EnvDatabasePath é o nome da variável de ambiente que define o caminho
-	// do banco SQLite.
+	// do banco SQLite (modo local).
 	EnvDatabasePath = "DB_PATH"
 
 	// EnvTemplatePath é o nome da variável de ambiente que define o caminho
@@ -30,6 +31,15 @@ const (
 	// EnvPort é o nome da variável de ambiente que define a porta do
 	// servidor HTTP.
 	EnvPort = "PORT"
+
+	// EnvTursoDatabaseURL é o nome da variável de ambiente que define a URL
+	// do banco Turso (ex.: libsql://seu-db-sua-conta.turso.io).
+	// Se definida, usa Embedded Replica (réplica local sincronizada com Turso).
+	EnvTursoDatabaseURL = "TURSO_DATABASE_URL"
+
+	// EnvTursoAuthToken é o nome da variável de ambiente que define o token
+	// de autenticação do Turso.
+	EnvTursoAuthToken = "TURSO_AUTH_TOKEN"
 
 	// DefaultDBPath é o banco padrão quando DB_PATH não está definida.
 	DefaultDBPath = "data/hinos.db"
@@ -49,17 +59,62 @@ const (
 // Config armazena as configurações carregadas da aplicação.
 // Todos os campos são sempre preenchidos em New (default ou variável).
 type Config struct {
-	DBPath       string
-	TemplatePath string
-	LogPath      string
-	Host         string
-	Port         string
+	DBPath           string
+	TemplatePath     string
+	LogPath          string
+	Host             string
+	Port             string
+	TursoDatabaseURL string
+	TursoAuthToken   string
+}
+
+// TursoReplicaPath retorna o caminho do arquivo de réplica local para Turso.
+// Se DB_PATH já termina com .db, usa ele; senão, adiciona _turso_replica.db
+func (c *Config) TursoReplicaPath() string {
+	if strings.HasSuffix(c.DBPath, ".db") {
+		return c.DBPath
+	}
+	return strings.TrimSuffix(c.DBPath, ".db") + "_turso_replica.db"
 }
 
 // Addr retorna o endereço de escuta do servidor HTTP no formato
 // host:port. Com Host vazio, escuta em todas as interfaces (":8080").
 func (c *Config) Addr() string {
 	return c.Host + ":" + c.Port
+}
+
+// UseTurso retorna true se a configuração deve usar Turso (libsql)
+// em vez do SQLite local.
+func (c *Config) UseTurso() bool {
+	return c.TursoDatabaseURL != ""
+}
+
+// DatabaseDSN retorna o DSN (Data Source Name) a ser usado para abrir
+// a conexão com o banco SQLite.
+// Para SQLite local, inclui pragmas de foreign_keys e busy_timeout.
+// Para Turso (Embedded Replica), retorna o DSN do arquivo de réplica local.
+func (c *Config) DatabaseDSN() string {
+	if c.UseTurso() {
+		// Embedded Replica: usa driver sqlite moderno no arquivo de réplica local
+		replicaPath := c.TursoReplicaPath()
+		return fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", replicaPath)
+	}
+
+	// SQLite local (arquivo ou :memory:)
+	if c.DBPath == ":memory:" {
+		return ":memory:"
+	}
+	return fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", c.DBPath)
+}
+
+// containsQuery verifica se a string já contém query parameters.
+func containsQuery(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '?' {
+			return true
+		}
+	}
+	return false
 }
 
 // New cria uma nova Config aplicando os valores padrão, carregando
@@ -118,6 +173,12 @@ func loadEnvironment(cfg *Config) error {
 	}
 	if v, ok := os.LookupEnv(EnvPort); ok && v != "" {
 		cfg.Port = v
+	}
+	if v, ok := os.LookupEnv(EnvTursoDatabaseURL); ok && v != "" {
+		cfg.TursoDatabaseURL = v
+	}
+	if v, ok := os.LookupEnv(EnvTursoAuthToken); ok && v != "" {
+		cfg.TursoAuthToken = v
 	}
 	return nil
 }
