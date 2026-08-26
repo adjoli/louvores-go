@@ -89,17 +89,7 @@ func New() (*App, error) {
 		return nil, fmt.Errorf("inicializar logging: %w", err)
 	}
 
-	// Se usando Turso (Embedded Replica), sincroniza a réplica local primeiro
-	if cfg.UseTurso() {
-		replicaPath := cfg.TursoReplicaPath()
-		logger.Info("sincronizando réplica Turso", "replica", replicaPath, "primary", cfg.TursoDatabaseURL)
-		if err := database.SyncTursoReplica(replicaPath, cfg.TursoDatabaseURL, cfg.TursoAuthToken); err != nil {
-			return nil, fmt.Errorf("sync réplica Turso: %w", err)
-		}
-		logger.Info("réplica Turso sincronizada com sucesso")
-	}
-
-	db, err := database.Open(cfg.DatabaseDSN())
+	db, err := database.Open(cfg.DBPath)
 	if err != nil {
 		return nil, fmt.Errorf("inicializar banco: %w", err)
 	}
