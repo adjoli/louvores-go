@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/adjoli/louvores-go/internal/models"
 	"github.com/adjoli/louvores-go/internal/ppt"
@@ -112,10 +114,54 @@ func (s *HinoService) GerarSlides(
 	}
 	seq := processors.ProcessarHino(letra)
 
-	creditos := ""
-	if hino.Creditos != nil {
-		creditos = *hino.Creditos
+	titulo, subtitulo, tituloSlides := textosSlides(*coletanea, *hino)
+	return ppt.GenerateSlides(titulo, subtitulo, tituloSlides, seq, templatePath)
+}
+
+// codigoCorinhos é o código curto da coletânea "Corinhos". Para essa coletânea
+// o subtítulo do slide de título fica vazio e os slides de conteúdo mantêm o
+// título original (sem prefixo da coletânea).
+const codigoCorinhos = "COR"
+
+// textosSlides define o que é exibido nos slides: o título do primeiro slide,
+// o texto abaixo dele (subtítulo) e o título dos slides de conteúdo.
+//
+//   - Para coletâneas que não são Corinhos, o subtítulo é "Nome da Coletânea - Número"
+//     e os slides de conteúdo levam o prefixo "NÚMERO{CÓDIGO} - Título".
+//   - Para Corinhos, o subtítulo fica vazio e os slides de conteúdo mantêm o
+//     título original, sem prefixo.
+func textosSlides(c models.Coletanea, h models.Hino) (titulo, subtitulo, tituloSlides string) {
+	numero := 0
+	if h.Numeracao != nil {
+		numero = *h.Numeracao
 	}
 
-	return ppt.GenerateSlides(hino.Titulo, creditos, seq, templatePath)
+	subtitulo = ""
+	tituloSlides = h.Titulo
+	if c.Codigo != codigoCorinhos {
+		subtitulo = fmt.Sprintf("%s - %d", titleCase(c.Titulo), numero)
+		tituloSlides = fmt.Sprintf("%d%s - %s", numero, c.Codigo, h.Titulo)
+	}
+	return h.Titulo, subtitulo, tituloSlides
+}
+
+// titleCase capitaliza a primeira letra de cada palavra, deixando o restante
+// em minúsculas. Para evitar estragar nomes já corretamente capitalizados
+// (ex.: "Hinário para o Culto Cristão"), a conversão só é aplicada quando o
+// texto está totalmente em maiúsculas.
+func titleCase(s string) string {
+	words := strings.Fields(s)
+	if len(words) == 0 {
+		return s
+	}
+
+	// Se houver alguma minúscula, o texto já tem caixa definida: preserva.
+	if s != strings.ToUpper(s) {
+		return s
+	}
+
+	for i, w := range words {
+		words[i] = strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
+	}
+	return strings.Join(words, " ")
 }

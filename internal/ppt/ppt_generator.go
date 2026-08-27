@@ -54,7 +54,11 @@ type generatedSlide struct {
 // GenerateSlides constrói a apresentação preservando todas as partes do
 // template e apenas acrescentando/registrando os slides novos de forma
 // consistente (Content_Types, relações e sldIdLst).
-func GenerateSlides(titulo, creditos string, seq domain.SequenciaHino, templatePath string) ([]byte, error) {
+//
+// titulo é o título do hino (campo principal do 1º slide), subtitulo é o texto
+// abaixo do título no 1º slide (pode ser vazio) e tituloSlides é o texto do
+// canto superior direito dos slides de conteúdo.
+func GenerateSlides(titulo, subtitulo, tituloSlides string, seq domain.SequenciaHino, templatePath string) ([]byte, error) {
 	zr, err := zip.OpenReader(templatePath)
 	if err != nil {
 		return nil, fmt.Errorf("abrir template: %w", err)
@@ -102,7 +106,7 @@ func GenerateSlides(titulo, creditos string, seq domain.SequenciaHino, templateP
 	}
 
 	// 4. Slide de título: reutiliza o slide1.xml do template, injetando o texto.
-	title, err := buildTitleSlide(files[titleSlidePart], titulo, creditos)
+	title, err := buildTitleSlide(files[titleSlidePart], titulo, subtitulo)
 	if err != nil {
 		return nil, fmt.Errorf("build título: %w", err)
 	}
@@ -116,7 +120,7 @@ func GenerateSlides(titulo, creditos string, seq domain.SequenciaHino, templateP
 		}
 		ph := placeholders[layoutIdx]
 		slideNum := nextSlideNum + i
-		slide := buildContentSlide(parte, titulo, len(seq.Partes), slideNum, layoutIdx, ph)
+		slide := buildContentSlide(parte, tituloSlides, len(seq.Partes), slideNum, layoutIdx, ph)
 
 		files[slide.fileName] = slide.content
 		files[slideRelsName(slideNum)] = slide.rels
@@ -141,7 +145,7 @@ func GenerateSlides(titulo, creditos string, seq domain.SequenciaHino, templateP
 
 // buildTitleSlide injeta o título e os créditos nos placeholders do slide de
 // título do template, preservando o restante do XML intocado.
-func buildTitleSlide(slide []byte, titulo, creditos string) ([]byte, error) {
+func buildTitleSlide(slide []byte, titulo, subtitulo string) ([]byte, error) {
 	if slide == nil {
 		return nil, fmt.Errorf("slide de título (slide1.xml) ausente no template")
 	}
@@ -154,13 +158,13 @@ func buildTitleSlide(slide []byte, titulo, creditos string) ([]byte, error) {
 	out = strings.Replace(out, ctrAnchor,
 		`<p:ph type="ctrTitle"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>`+paragraph(titulo), 1)
 
-	if creditos != "" {
+	if subtitulo != "" {
 		subAnchor := `<p:ph type="subTitle" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr dirty="0"/></a:p>`
 		if !strings.Contains(out, subAnchor) {
 			return nil, fmt.Errorf("placeholder subTitle não encontrado no slide de título")
 		}
 		out = strings.Replace(out, subAnchor,
-			`<p:ph type="subTitle" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>`+paragraph(creditos), 1)
+			`<p:ph type="subTitle" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>`+paragraph(subtitulo), 1)
 	}
 
 	return []byte(out), nil
@@ -168,7 +172,7 @@ func buildTitleSlide(slide []byte, titulo, creditos string) ([]byte, error) {
 
 // buildContentSlide monta um slide de conteúdo (estrofe/refrão) que herda a
 // formatação do layout referenciado, preenchendo título, body e rodapé.
-func buildContentSlide(parte domain.ParteHino, titulo string, total, slideNum, layoutIdx int, ph layoutPlaceholderInfo) generatedSlide {
+func buildContentSlide(parte domain.ParteHino, tituloSlides string, total, slideNum, layoutIdx int, ph layoutPlaceholderInfo) generatedSlide {
 	title := fmt.Sprintf(`<p:ph type="title" idx="%d"/>`, ph.titleIdx)
 	body := fmt.Sprintf(`<p:ph type="body" idx="%d"/>`, ph.bodyIdx)
 	footer := fmt.Sprintf(`<p:ph type="body" sz="quarter" idx="%d"/>`, ph.footerIdx)
@@ -181,7 +185,7 @@ func buildContentSlide(parte domain.ParteHino, titulo string, total, slideNum, l
 		`<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
 		`<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>` +
 		`<p:sp><p:nvSpPr><p:cNvPr id="2" name="Título"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr>` + title + `</p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>` +
-		paragraph(titulo) +
+		paragraph(tituloSlides) +
 		`</p:txBody></p:sp>` +
 		`<p:sp><p:nvSpPr><p:cNvPr id="3" name="Conteúdo"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr>` + body + `</p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>` +
 		paragraphs(parte.Txt) +

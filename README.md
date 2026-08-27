@@ -48,6 +48,13 @@ Erros retornam `{"error": "..."}` com status 404 (coletânea/hino inexistente), 
 
 `GET /api/coletaneas/{codigo}/hinos/{numero}/slides` gera o PPTX dos slides do hino e o retorna como download (`{CODIGO}-{NUM:03d}-{TITULO}.pptx`). Apenas hinos revisados geram slides — hinos não revisados retornam **409**.
 
+O conteúdo dos slides varia conforme a coletânea:
+
+- **Coletâneas comuns** (≠ Corinhos): no primeiro slide, o campo abaixo do título mostra `Nome da Coletânea - Número` (ex.: `Cantor Cristão - 42`); nos slides de conteúdo, o título do canto superior direito recebe o prefixo `NÚMERO{CÓDIGO}`, no formato `NÚMERO{CÓDIGO} - TÍTULO` (ex.: `42CC - Antífona`).
+- **Corinhos** (código `COR`): o campo abaixo do título do primeiro slide fica em branco e os slides de conteúdo mantêm o título original, sem prefixo.
+
+Os créditos do hino não são mais exibidos nos slides.
+
 ## Dados
 
 - `data/templates/default.pptx` — template dos slides (layouts: título, estrofe, refrão)

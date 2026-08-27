@@ -127,3 +127,60 @@ func TestObterHinoNaoEncontrado(t *testing.T) {
 		t.Fatalf("erro = %v, esperado %v", err, repository.ErrColetaneaNotFound)
 	}
 }
+
+func numero(n int) *int { return &n }
+
+func TestTextosSlidesNaoCorinhos(t *testing.T) {
+	c := models.Coletanea{Codigo: "CC", Titulo: "Cantor Cristão"}
+	h := models.Hino{Titulo: "Grandioso Pai", Numeracao: numero(42)}
+
+	titulo, subtitulo, tituloSlides := textosSlides(c, h)
+	if titulo != "Grandioso Pai" {
+		t.Errorf("titulo = %q", titulo)
+	}
+	if subtitulo != "Cantor Cristão - 42" {
+		t.Errorf("subtitulo = %q", subtitulo)
+	}
+	if tituloSlides != "42CC - Grandioso Pai" {
+		t.Errorf("tituloSlides = %q", tituloSlides)
+	}
+}
+
+func TestTextosSlidesNomeEmMaiusculas(t *testing.T) {
+	c := models.Coletanea{Codigo: "CC", Titulo: "CANTOR CRISTÃO"}
+	h := models.Hino{Titulo: "Grandioso Pai", Numeracao: numero(7)}
+
+	_, subtitulo, tituloSlides := textosSlides(c, h)
+	if subtitulo != "Cantor Cristão - 7" {
+		t.Errorf("subtitulo = %q (Title Case esperado)", subtitulo)
+	}
+	if tituloSlides != "7CC - Grandioso Pai" {
+		t.Errorf("tituloSlides = %q", tituloSlides)
+	}
+}
+
+func TestTextosSlidesNomeJaCapitalizadoPreservado(t *testing.T) {
+	c := models.Coletanea{Codigo: "HCC", Titulo: "Hinário para o Culto Cristão"}
+	h := models.Hino{Titulo: "Louvor", Numeracao: numero(3)}
+
+	_, subtitulo, _ := textosSlides(c, h)
+	if subtitulo != "Hinário para o Culto Cristão - 3" {
+		t.Errorf("subtitulo = %q (preposições preservadas)", subtitulo)
+	}
+}
+
+func TestTextosSlidesCorinhos(t *testing.T) {
+	c := models.Coletanea{Codigo: "COR", Titulo: "Corinhos"}
+	h := models.Hino{Titulo: "Grandioso Pai", Numeracao: numero(12)}
+
+	titulo, subtitulo, tituloSlides := textosSlides(c, h)
+	if titulo != "Grandioso Pai" {
+		t.Errorf("titulo = %q", titulo)
+	}
+	if subtitulo != "" {
+		t.Errorf("subtitulo = %q, esperado vazio", subtitulo)
+	}
+	if tituloSlides != "Grandioso Pai" {
+		t.Errorf("tituloSlides = %q, esperado título original", tituloSlides)
+	}
+}

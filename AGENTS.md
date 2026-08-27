@@ -75,9 +75,10 @@ Fluxo: HTTP (internal/api) → Services → Repository → SQLite. Erros como va
 - **Detecção de refrão**: todas as linhas do bloco começam com espaço/tab → refrão (indentação removida); senão → estrofe.
 - **Blocos**: separados por linha em branco (`\n\s*\n`).
 - **Rodapé**: `N/total` no placeholder body de índice 10 (`sz="quarter"`) do template.
+- **Exibição por coletânea** (`services.textosSlides`): para coletâneas comuns (≠ Corinhos, código `COR`), o 1º slide mostra `Nome da Coletânea - Número` abaixo do título e os slides de conteúdo usam `NÚMERO{CÓDIGO} - TÍTULO` (ex.: `42CC - Antífona`) no topo direito; para Corinhos, o subtítulo fica vazio e os slides de conteúdo mantêm o título original. Os créditos do hino não são exibidos nos slides.
 - **Template `default.pptx`**: layouts `[1] TITULO` (ctrTitle + subTitle), `[2] ESTROFE`, `[3] REFRAO` (title + body idx=1 + body idx=10 para rodapé). **Não alterar esta estrutura** — o gerador depende dela. O slide de título do template (`ppt/slides/slide1.xml`) é reutilizado (injeção de texto); os slides de conteúdo são novos e referenciam os layouts 2/3 via `.rels`.
 - **Integridade do pacote**: para cada slide novo o gerador sincroniza 4 registros — `<Override>` no `[Content_Types].xml`, `<Relationship>` no `presentation.xml.rels`, `.rels` do slide→layout e `<p:sldId>` no `presentation.xml`. O teste `TestGeneratedPackageIntegrity` valida essa consistência para que o PowerPoint não peça reparo.
-- **Nomenclatura de saída** (geração futura): `{CODIGO}-{NUM:03d}-{TITULO}.pptx` (título em maiúsculas).
+- **Nomenclatura de saída**: `{CODIGO}-{NUM:03d}-{TITULO}.pptx` (título em maiúsculas).
 - **Template**: único e fixo (`default.pptx`) — não há seleção de template.
 
 ## Ambiente

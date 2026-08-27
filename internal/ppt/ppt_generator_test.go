@@ -31,7 +31,7 @@ func TestGenerateSlides(t *testing.T) {
 		{Txt: "Estrofe dois", Numero: 3, Tipo: domain.TipoParteEstrofe},
 	}}
 
-	data, err := GenerateSlides("Hino de Teste", "Autor", seq, templatePath(t))
+	data, err := GenerateSlides("Hino de Teste", "Cantor Cristão - 42", "42CC - Hino de Teste", seq, templatePath(t))
 	if err != nil {
 		t.Fatalf("gerar: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestGeneratedPackageIntegrity(t *testing.T) {
 		{Txt: "Refrão um\nRefrão dois", Numero: 2, Tipo: domain.TipoParteRefrao},
 		{Txt: "Estrofe dois", Numero: 3, Tipo: domain.TipoParteEstrofe},
 	}}
-	data, err := GenerateSlides("Hino de Teste", "Autor", seq, templatePath(t))
+	data, err := GenerateSlides("Hino de Teste", "Cantor Cristão - 42", "42CC - Hino de Teste", seq, templatePath(t))
 	if err != nil {
 		t.Fatalf("gerar: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestGeneratedPackageIntegrity(t *testing.T) {
 }
 
 func TestGenerateSlidesTemplateInexistente(t *testing.T) {
-	_, err := GenerateSlides("x", "", domain.SequenciaHino{}, filepath.Join(t.TempDir(), "nao-existe.pptx"))
+	_, err := GenerateSlides("x", "", "x", domain.SequenciaHino{}, filepath.Join(t.TempDir(), "nao-existe.pptx"))
 	if err == nil {
 		t.Fatal("esperado erro para template inexistente")
 	}
