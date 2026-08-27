@@ -167,6 +167,39 @@ paths:
         '500':
           $ref: '#/components/responses/ErroInterno'
 
+  /api/coletaneas/{codigo}/slides/lote:
+    post:
+      summary: Gera os slides de todos os hinos revisados da coletânea em um ZIP.
+      description: |
+        Gera um PPTX por hino revisado (e com letra) e os empacota em um único
+        arquivo ZIP, baixado como {CODIGO}-slides.zip. Hinos não revisados, sem
+        letra ou com erro são pulados.
+      operationId: gerarSlidesLote
+      parameters:
+        - $ref: '#/components/parameters/CodigoColetanea'
+      responses:
+        '200':
+          description: ZIP contendo um PPTX por hino revisado da coletânea.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: Nome do arquivo para download
+              schema:
+                type: string
+              example: 'attachment; filename="CC-slides.zip"'
+        '404':
+          description: Coletânea inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+
   /api/stats:
     get:
       summary: Estatísticas agregadas por coletânea.

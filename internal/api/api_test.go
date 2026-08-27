@@ -1,10 +1,14 @@
 package api
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -194,6 +198,75 @@ func TestStatsEndpoint(t *testing.T) {
 	}
 }
 
+func TestGerarSlidesLoteEndpoint(t *testing.T) {
+	templatePath := filepath.Join("..", "..", "data", "templates", "default.pptx")
+	if _, err := os.Stat(templatePath); err != nil {
+		t.Skipf("template não encontrado: %v", err)
+	}
+
+	conn, err := database.Open(":memory:")
+	if err != nil {
+		t.Fatalf("abrir banco: %v", err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	if err := database.Migrate(conn); err != nil {
+		t.Fatalf("migrar: %v", err)
+	}
+
+	ctx := context.Background()
+	cr := repository.NewSQLiteColetaneaRepository(conn)
+	coletanea := &models.Coletanea{Codigo: "CC", Titulo: "Cantor Cristão"}
+	if err := cr.Create(ctx, coletanea); err != nil {
+		t.Fatalf("criar coletânea: %v", err)
+	}
+
+	hr := repository.NewSQLiteHinoRepository(conn)
+	num := 42
+	letra := "Estrofe um\n\n    Refrão"
+	if err := hr.Create(ctx, &models.Hino{
+		ColetaneaID: coletanea.ID, Numeracao: &num,
+		Titulo: "Grandioso Pai", Letra: &letra, Revisado: true,
+	}); err != nil {
+		t.Fatalf("criar hino: %v", err)
+	}
+
+	hinoSvc := services.NewHinoService(hr, cr, templatePath)
+	handler := New(hinoSvc, services.NewStatsService(hr)).Routes()
+
+	res := doRequest(handler, http.MethodPost, "/api/coletaneas/CC/slides/lote")
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusOK)
+	}
+	if ct := res.Header().Get("Content-Type"); ct != "application/zip" {
+		t.Errorf("content-type = %q, want application/zip", ct)
+	}
+	if cd := res.Header().Get("Content-Disposition"); !strings.Contains(cd, "CC-slides.zip") {
+		t.Errorf("content-disposition = %q, want CC-slides.zip", cd)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(res.Body.Bytes()), int64(res.Body.Len()))
+	if err != nil {
+		t.Fatalf("abrir zip: %v", err)
+	}
+	if len(zr.File) != 1 {
+		t.Fatalf("arquivos no zip = %d, want 1", len(zr.File))
+	}
+	if zr.File[0].Name != "CC-042-GRANDIOSO_PAI.pptx" {
+		t.Errorf("nome do arquivo = %q", zr.File[0].Name)
+	}
+}
+
+func TestGerarSlidesLoteColetaneaInexistenteEndpoint(t *testing.T) {
+	handler := newTestHandler(t)
+
+	res := doRequest(handler, http.MethodPost, "/api/coletaneas/XX/slides/lote")
+
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusNotFound)
+	}
+}
+
 func TestOpenAPISpecEndpoint(t *testing.T) {
 	handler := newTestHandler(t)
 
@@ -253,8 +326,8 @@ func TestParidadeRotasSpec(t *testing.T) {
 
 	padroes := make(map[string]bool, len(api.rotas()))
 	for _, rota := range api.rotas() {
-		metodo, caminho, ok := strings.Cut(rota.padrao, " ")
-		if !ok || metodo != http.MethodGet {
+		_, caminho, ok := strings.Cut(rota.padrao, " ")
+		if !ok {
 			t.Fatalf("padrão inesperado: %q", rota.padrao)
 		}
 		padroes[caminho] = true

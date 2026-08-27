@@ -1,8 +1,12 @@
 package services
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
+	"sort"
 	"strings"
 
 	"github.com/adjoli/louvores-go/internal/models"
@@ -104,8 +108,97 @@ func (s *HinoService) GerarSlides(
 	}
 
 	hino, err := s.hinoRepo.FindByNumero(ctx, coletanea.ID, numero)
+	if err != nil {
+		return nil, err
+	}
+
+	_, data, err := s.geraSlidesHino(ctx, coletanea, hino, templatePath)
+	return data, err
+}
+
+// ArquivoGerado é um PPTX gerado para o lote, com o nome de saída e o conteúdo.
+type ArquivoGerado struct {
+	Nome     string
+	Conteudo []byte
+}
+
+// LoteResultado é o resultado da geração em lote: o ZIP empacotado e a
+// contagem de hinos gerados e pulados (não revisados, sem letra ou com erro).
+type LoteResultado struct {
+	Zip     []byte
+	Gerados int
+	Pulados int
+}
+
+// GerarSlidesColetanea gera os slides de todos os hinos revisados (e com
+// letra) de uma coletânea e os empacota em um único ZIP, um PPTX por hino.
+//
+// Hinos não revisados, sem letra ou sem numeração são pulados e contados em
+// Pulados; erros individuais são logados e não interrompem o lote.
+func (s *HinoService) GerarSlidesColetanea(
+	ctx context.Context,
+	codigoColetanea string,
+	templatePath string,
+) (*LoteResultado, error) {
+	coletanea, err := s.coletaneaRepo.FindByCodigo(ctx, codigoColetanea)
+	if err != nil {
+		return nil, err
+	}
+
+	hinos, err := s.hinoRepo.ListByColetanea(ctx, coletanea.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	var arquivos []ArquivoGerado
+	pulados := 0
+
+	for i := range hinos {
+		hino := &hinos[i]
+		if !hino.Revisado || hino.Letra == nil || hino.Numeracao == nil {
+			pulados++
+			continue
+		}
+
+		filename, data, err := s.geraSlidesHino(ctx, coletanea, hino, templatePath)
+		if err != nil {
+			slog.Error("falha ao gerar slides no lote",
+				"coletanea", coletanea.Codigo,
+				"numero", *hino.Numeracao,
+				"erro", err)
+			pulados++
+			continue
+		}
+		arquivos = append(arquivos, ArquivoGerado{Nome: filename, Conteudo: data})
+	}
+
+	zipData, err := zipArquivos(arquivos)
+	if err != nil {
+		return nil, fmt.Errorf("empacotar lote: %w", err)
+	}
+
+	return &LoteResultado{
+		Zip:     zipData,
+		Gerados: len(arquivos),
+		Pulados: pulados,
+	}, nil
+}
+
+// geraSlidesHino gera o PPTX de um hino já carregado com a coletânea,
+// retornando o nome do arquivo e o conteúdo. Concentra o nome de saída, o
+// parse da letra e a formatação por coletânea, para o path único e o lote
+// compartilharem a mesma lógica.
+func (s *HinoService) geraSlidesHino(
+	ctx context.Context,
+	coletanea *models.Coletanea,
+	hino *models.Hino,
+	templatePath string,
+) (string, []byte, error) {
 	if !hino.Revisado {
-		return nil, ErrHinoNotReviewed
+		return "", nil, ErrHinoNotReviewed
+	}
+	if hino.Numeracao == nil {
+		return "", nil, fmt.Errorf("hino sem numeração")
 	}
 
 	letra := ""
@@ -115,7 +208,44 @@ func (s *HinoService) GerarSlides(
 	seq := processors.ProcessarHino(letra)
 
 	titulo, subtitulo, tituloSlides := textosSlides(*coletanea, *hino)
-	return ppt.GenerateSlides(titulo, subtitulo, tituloSlides, seq, templatePath)
+	data, err := ppt.GenerateSlides(titulo, subtitulo, tituloSlides, seq, templatePath)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return nomeArquivoSlides(coletanea.Codigo, *hino.Numeracao, hino.Titulo), data, nil
+}
+
+// nomeArquivoSlides monta o nome de saída de um PPTX: {CODIGO}-{NUM:03d}-{TITULO}.pptx
+// (título em maiúsculas, espaços viram sublinhado).
+func nomeArquivoSlides(codigo string, numero int, titulo string) string {
+	return fmt.Sprintf("%s-%03d-%s.pptx",
+		codigo,
+		numero,
+		strings.ToUpper(strings.ReplaceAll(titulo, " ", "_")),
+	)
+}
+
+// zipArquivos empacota os arquivos em um ZIP em memória, ordenados pelo nome
+// para uma saída determinística.
+func zipArquivos(arquivos []ArquivoGerado) ([]byte, error) {
+	sort.Slice(arquivos, func(i, j int) bool { return arquivos[i].Nome < arquivos[j].Nome })
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, a := range arquivos {
+		w, err := zw.Create(a.Nome)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := w.Write(a.Conteudo); err != nil {
+			return nil, err
+		}
+	}
+	if err := zw.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // codigoCorinhos é o código curto da coletânea "Corinhos". Para essa coletânea

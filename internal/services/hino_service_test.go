@@ -1,8 +1,12 @@
 package services
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/adjoli/louvores-go/internal/database"
@@ -182,5 +186,93 @@ func TestTextosSlidesCorinhos(t *testing.T) {
 	}
 	if tituloSlides != "Grandioso Pai" {
 		t.Errorf("tituloSlides = %q, esperado título original", tituloSlides)
+	}
+}
+
+// templateRealLocaliza o template default para os testes de geração de slides.
+// Skippa se o template não estiver presente (ex.: repositório clonado sem dados).
+func templateRealLocaliza(t *testing.T) string {
+	t.Helper()
+	p := filepath.Join("..", "..", "data", "templates", "default.pptx")
+	if _, err := os.Stat(p); err != nil {
+		t.Skipf("template não encontrado: %v", err)
+	}
+	return p
+}
+
+func TestGerarSlidesColetanea(t *testing.T) {
+	conn, err := database.Open(":memory:")
+	if err != nil {
+		t.Fatalf("abrir banco: %v", err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	if err := database.Migrate(conn); err != nil {
+		t.Fatalf("migrar: %v", err)
+	}
+
+	ctx := context.Background()
+	cr := repository.NewSQLiteColetaneaRepository(conn)
+	coletanea := &models.Coletanea{Codigo: "CC", Titulo: "Cantor Cristão"}
+	if err := cr.Create(ctx, coletanea); err != nil {
+		t.Fatalf("criar coletânea: %v", err)
+	}
+
+	hr := repository.NewSQLiteHinoRepository(conn)
+	num1 := 1
+	letra := "Estrofe um\n\n    Refrão"
+	if err := hr.Create(ctx, &models.Hino{
+		ColetaneaID: coletanea.ID, Numeracao: &num1,
+		Titulo: "Grandioso Pai", Letra: &letra, Revisado: true,
+	}); err != nil {
+		t.Fatalf("criar hino 1: %v", err)
+	}
+	num2 := 2
+	if err := hr.Create(ctx, &models.Hino{
+		ColetaneaID: coletanea.ID, Numeracao: &num2,
+		Titulo: "Sem Revisar", Revisado: false,
+	}); err != nil {
+		t.Fatalf("criar hino 2: %v", err)
+	}
+
+	svc := NewHinoService(hr, cr, templateRealLocaliza(t))
+	res, err := svc.GerarSlidesColetanea(ctx, "CC", svc.TemplatePath())
+	if err != nil {
+		t.Fatalf("GerarSlidesColetanea: %v", err)
+	}
+	if res.Gerados != 1 {
+		t.Errorf("gerados = %d, esperado 1", res.Gerados)
+	}
+	if res.Pulados != 1 {
+		t.Errorf("pulados = %d, esperado 1", res.Pulados)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(res.Zip), int64(len(res.Zip)))
+	if err != nil {
+		t.Fatalf("abrir zip: %v", err)
+	}
+	if len(zr.File) != 1 {
+		t.Fatalf("arquivos no zip = %d, esperado 1", len(zr.File))
+	}
+	if zr.File[0].Name != "CC-001-GRANDIOSO_PAI.pptx" {
+		t.Errorf("nome do arquivo = %q", zr.File[0].Name)
+	}
+}
+
+func TestGerarSlidesColetaneaInexistente(t *testing.T) {
+	conn, err := database.Open(":memory:")
+	if err != nil {
+		t.Fatalf("abrir banco: %v", err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	if err := database.Migrate(conn); err != nil {
+		t.Fatalf("migrar: %v", err)
+	}
+
+	hr := repository.NewSQLiteHinoRepository(conn)
+	cr := repository.NewSQLiteColetaneaRepository(conn)
+	svc := NewHinoService(hr, cr, templateRealLocaliza(t))
+
+	if _, err := svc.GerarSlidesColetanea(context.Background(), "XX", svc.TemplatePath()); !errors.Is(err, repository.ErrColetaneaNotFound) {
+		t.Fatalf("erro = %v, esperado %v", err, repository.ErrColetaneaNotFound)
 	}
 }

@@ -35,6 +35,7 @@ Endpoints (somente leitura; geração de slides é download):
 | `GET` | `/api/coletaneas/{codigo}/hinos` | hinos da coletânea, ordenados pela numeração |
 | `GET` | `/api/coletaneas/{codigo}/hinos/{numero}` | detalhe do hino (ex.: CC/42) |
 | `GET` | `/api/coletaneas/{codigo}/hinos/{numero}/slides` | gera e baixa o PPTX dos slides do hino |
+| `POST` | `/api/coletaneas/{codigo}/slides/lote` | gera um ZIP com o PPTX de cada hino revisado da coletânea |
 | `GET` | `/api/stats` | estatísticas agregadas por coletânea |
 | `GET` | `/api/openapi.yaml` | especificação OpenAPI (embed, YAML cru) |
 | `GET` | `/api/docs` | Swagger UI (assets via CDN) |

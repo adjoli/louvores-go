@@ -61,6 +61,7 @@ func (a *API) rotas() []rota {
 		{padrao: "GET /api/coletaneas/{codigo}/hinos", handler: a.handleListarHinos},
 		{padrao: "GET /api/coletaneas/{codigo}/hinos/{numero}", handler: a.handleObterHino},
 		{padrao: "GET /api/coletaneas/{codigo}/hinos/{numero}/slides", handler: a.handleGerarSlides},
+		{padrao: "POST /api/coletaneas/{codigo}/slides/lote", handler: a.handleGerarSlidesLote},
 		{padrao: "GET /api/stats", handler: a.handleStats},
 		{padrao: "GET /api/openapi.yaml", handler: a.handleOpenAPISpec},
 		{padrao: "GET /api/docs", handler: a.handleDocs},
@@ -179,6 +180,32 @@ func (a *API) handleGerarSlides(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(pptxBytes)))
 	w.WriteHeader(http.StatusOK)
 	w.Write(pptxBytes)
+}
+
+// handleGerarSlidesLote gera os slides de todos os hinos revisados de uma
+// coletânea e retorna um ZIP com um PPTX por hino.
+func (a *API) handleGerarSlidesLote(w http.ResponseWriter, r *http.Request) {
+	codigo := r.PathValue("codigo")
+
+	resultado, err := a.hinoSvc.GerarSlidesColetanea(r.Context(), codigo, a.hinoSvc.TemplatePath())
+	if err != nil {
+		respondError(r, w, err)
+		return
+	}
+
+	filename := fmt.Sprintf("%s-slides.zip", codigo)
+
+	slog.Info("lote de slides gerado",
+		"coletanea", codigo,
+		"gerados", resultado.Gerados,
+		"pulados", resultado.Pulados,
+	)
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Length", strconv.Itoa(len(resultado.Zip)))
+	w.WriteHeader(http.StatusOK)
+	w.Write(resultado.Zip)
 }
 
 // handleStats retorna as estatísticas agregadas por coletânea.

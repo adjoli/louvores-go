@@ -36,6 +36,7 @@ louvores    # sobe o servidor HTTP (padrão :8080)
 | `GET` | `/api/coletaneas/{codigo}/hinos` | hinos da coletânea, ordenados pela numeração |
 | `GET` | `/api/coletaneas/{codigo}/hinos/{numero}` | detalhe do hino (ex.: CC/42) |
 | `GET` | `/api/coletaneas/{codigo}/hinos/{numero}/slides` | gera e baixa o PPTX dos slides do hino |
+| `POST` | `/api/coletaneas/{codigo}/slides/lote` | gera um ZIP com o PPTX de cada hino revisado da coletânea |
 | `GET` | `/api/stats` | estatísticas agregadas por coletânea |
 | `GET` | `/api/openapi.yaml` | especificação OpenAPI (embutida no binário) |
 | `GET` | `/api/docs` | documentação interativa (Swagger UI) |
@@ -54,6 +55,8 @@ O conteúdo dos slides varia conforme a coletânea:
 - **Corinhos** (código `COR`): o campo abaixo do título do primeiro slide fica em branco e os slides de conteúdo mantêm o título original, sem prefixo.
 
 Os créditos do hino não são mais exibidos nos slides.
+
+`POST /api/coletaneas/{codigo}/slides/lote` gera um **ZIP** com o PPTX de todos os hinos revisados (e com letra) da coletânea, baixado como `{CODIGO}-slides.zip`. Hinos não revisados, sem letra ou com erro de geração são pulados.
 
 ## Dados
 
