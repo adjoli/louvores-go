@@ -152,6 +152,10 @@ func (a *API) handleGerarSlides(w http.ResponseWriter, r *http.Request) {
 	// Gerar slides (valida se está revisado internamente)
 	pptxBytes, err := a.hinoSvc.GerarSlides(r.Context(), codigo, numero, a.hinoSvc.TemplatePath())
 	if err != nil {
+		if errors.Is(err, services.ErrHinoNotReviewed) {
+			slog.Warn("gerar slides bloqueado: hino não revisado",
+				"coletanea", codigo, "numero", numero)
+		}
 		respondError(r, w, err)
 		return
 	}
@@ -161,6 +165,13 @@ func (a *API) handleGerarSlides(w http.ResponseWriter, r *http.Request) {
 		codigo,
 		numero,
 		strings.ToUpper(strings.ReplaceAll(hino.Titulo, " ", "_")),
+	)
+
+	slog.Info("slides gerados",
+		"coletanea", codigo,
+		"numero", numero,
+		"arquivo", filename,
+		"tamanho", len(pptxBytes),
 	)
 
 	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
