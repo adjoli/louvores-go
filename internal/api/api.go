@@ -10,9 +10,11 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/adjoli/louvores-go/internal/repository"
 	"github.com/adjoli/louvores-go/internal/services"
@@ -58,6 +60,7 @@ func (a *API) rotas() []rota {
 		{padrao: "GET /api/coletaneas", handler: a.handleListarColetaneas},
 		{padrao: "GET /api/coletaneas/{codigo}/hinos", handler: a.handleListarHinos},
 		{padrao: "GET /api/coletaneas/{codigo}/hinos/{numero}", handler: a.handleObterHino},
+		{padrao: "GET /api/coletaneas/{codigo}/hinos/{numero}/slides", handler: a.handleGerarSlides},
 		{padrao: "GET /api/stats", handler: a.handleStats},
 		{padrao: "GET /api/openapi.yaml", handler: a.handleOpenAPISpec},
 		{padrao: "GET /api/docs", handler: a.handleDocs},
@@ -125,6 +128,48 @@ func (a *API) handleObterHino(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, hino)
 }
 
+// handleGerarSlides gera e retorna o arquivo PPTX com os slides do hino.
+// Apenas hinos revisados podem ter slides gerados.
+// Retorna o arquivo PPTX como download (application/vnd.openxmlformats-officedocument.presentationml.presentation).
+func (a *API) handleGerarSlides(w http.ResponseWriter, r *http.Request) {
+	codigo := r.PathValue("codigo")
+
+	numero, err := strconv.Atoi(r.PathValue("numero"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "número inválido",
+		})
+		return
+	}
+
+	// Obter o hino para pegar o título para o nome do arquivo
+	hino, err := a.hinoSvc.ObterHino(r.Context(), codigo, numero)
+	if err != nil {
+		respondError(r, w, err)
+		return
+	}
+
+	// Gerar slides (valida se está revisado internamente)
+	pptxBytes, err := a.hinoSvc.GerarSlides(r.Context(), codigo, numero, a.hinoSvc.TemplatePath())
+	if err != nil {
+		respondError(r, w, err)
+		return
+	}
+
+	// Nome do arquivo: {CODIGO}-{NUM:03d}-{TITULO}.pptx (título em maiúsculas)
+	filename := fmt.Sprintf("%s-%03d-%s.pptx",
+		codigo,
+		numero,
+		strings.ToUpper(strings.ReplaceAll(hino.Titulo, " ", "_")),
+	)
+
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Length", strconv.Itoa(len(pptxBytes)))
+	w.WriteHeader(http.StatusOK)
+	w.Write(pptxBytes)
+}
+
 // handleStats retorna as estatísticas agregadas por coletânea.
 func (a *API) handleStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := a.statsSvc.ObterStats(r.Context())
@@ -167,11 +212,15 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 // respondError mapeia erros para respostas HTTP: erros sentinela de
-// "não encontrado" viram 404; qualquer outro erro vira 500 genérico
-// (detalhes vão para o log, nunca para o cliente).
+// "não encontrado" viram 404; hino não revisado vira 409;
+// qualquer outro erro vira 500 genérico (detalhes vão para o log, nunca para o cliente).
 func respondError(r *http.Request, w http.ResponseWriter, err error) {
 	if errors.Is(err, repository.ErrHinoNotFound) || errors.Is(err, repository.ErrColetaneaNotFound) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		return
+	}
+	if errors.Is(err, services.ErrHinoNotReviewed) {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 		return
 	}
 

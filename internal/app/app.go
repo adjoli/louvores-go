@@ -106,7 +106,7 @@ func New() (*App, error) {
 		cfg:      cfg,
 		db:       db,
 		logger:   logger,
-		hinoSvc:  services.NewHinoService(hinoRepo, coletaneaRepo),
+		hinoSvc:  services.NewHinoService(hinoRepo, coletaneaRepo, cfg.TemplatePath),
 		statsSvc: services.NewStatsService(hinoRepo),
 	}, nil
 }

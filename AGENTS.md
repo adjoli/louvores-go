@@ -8,7 +8,7 @@ Porte para Go da aplicação **Louvores** (geração de slides PPTX de hinos). O
 - **HTTP**: `net/http` stdlib (ServeMux Go 1.22+, padrões `METHOD /rota/{param}`) — sem framework.
 - **API**: REST JSON, fase atual somente leitura (sem CLI; a interface HTMX fica para fase futura).
 - **DB**: SQLite via `database/sql` + `modernc.org/sqlite` (100% Go, sem CGO). Testes usam `:memory:`.
-- **PPTX**: `baliance/gooxml` (AGPL-3.0, sem chave de licença). `gooxml.DisableLogging()` silencia os logs internos da lib.
+- **PPTX**: geração própria sobre o pacote OOXML (`archive/zip` + `encoding/xml`), preservando o template byte-a-byte e registrando os slides novos de forma consistente (`[Content_Types].xml`, `.rels`, `sldIdLst`). `github.com/baliance/gooxml` (AGPL-3.0) é usado **somente como validador nos testes** (`presentation.Open`); o código de produção não o importa.
 - **Config**: `joho/godotenv` + env vars com defaults.
 - **Logging**: `log/slog` → `logs/app.log` + console (nível INFO).
 
@@ -59,8 +59,8 @@ internal/
   domain/slide_parts.go     TipoParte, ParteHino, SequenciaHino
   processors/lyrics_parser.go  Letra → estrofes/refrões (por indentação)
   ppt/
-    layouts.go              LayoutEstrofe=1, LayoutRefrao=2
-    ppt_generator.go        gooxml: template → slides → []byte
+    layouts.go              LayoutTitulo=1, LayoutEstrofe=2, LayoutRefrao=3 (índices reais do template)
+    ppt_generator.go        template → slides → []byte (ZIP/OOXML manual, preserva as partes)
 ```
 
 Fluxo: HTTP (internal/api) → Services → Repository → SQLite. Erros como valores (sentinelas `repository.ErrHinoNotFound`, `repository.ErrColetaneaNotFound`). Escrita (revisão de letras, geração de slides via download) será adicionada em fases futuras sobre os mesmos repositórios.
@@ -73,8 +73,9 @@ Fluxo: HTTP (internal/api) → Services → Repository → SQLite. Erros como va
 - **Resposta de erro**: `{"error": "..."}`; 404 para sentinelas de não encontrado, 400 para parâmetro inválido, 500 genérico com detalhe só no log.
 - **Detecção de refrão**: todas as linhas do bloco começam com espaço/tab → refrão (indentação removida); senão → estrofe.
 - **Blocos**: separados por linha em branco (`\n\s*\n`).
-- **Rodapé**: `N/total` no placeholder body de índice 10 do template.
-- **Template `default.pptx`**: layouts `[0] TITULO` (ctrTitle + subTitle), `[1] ESTROFE`, `[2] REFRAO` (title + body idx=1 + body idx=10). **Não alterar esta estrutura** — o gerador depende dela.
+- **Rodapé**: `N/total` no placeholder body de índice 10 (`sz="quarter"`) do template.
+- **Template `default.pptx`**: layouts `[1] TITULO` (ctrTitle + subTitle), `[2] ESTROFE`, `[3] REFRAO` (title + body idx=1 + body idx=10 para rodapé). **Não alterar esta estrutura** — o gerador depende dela. O slide de título do template (`ppt/slides/slide1.xml`) é reutilizado (injeção de texto); os slides de conteúdo são novos e referenciam os layouts 2/3 via `.rels`.
+- **Integridade do pacote**: para cada slide novo o gerador sincroniza 4 registros — `<Override>` no `[Content_Types].xml`, `<Relationship>` no `presentation.xml.rels`, `.rels` do slide→layout e `<p:sldId>` no `presentation.xml`. O teste `TestGeneratedPackageIntegrity` valida essa consistência para que o PowerPoint não peça reparo.
 - **Nomenclatura de saída** (geração futura): `{CODIGO}-{NUM:03d}-{TITULO}.pptx` (título em maiúsculas).
 - **Template**: único e fixo (`default.pptx`) — não há seleção de template.
 

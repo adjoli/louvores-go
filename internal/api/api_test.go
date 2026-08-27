@@ -56,7 +56,7 @@ func newTestHandler(t *testing.T) http.Handler {
 		t.Fatalf("criar hino 43: %v", err)
 	}
 
-	hinoSvc := services.NewHinoService(hinoRepo, coletaneaRepo)
+	hinoSvc := services.NewHinoService(hinoRepo, coletaneaRepo, "")
 	statsSvc := services.NewStatsService(hinoRepo)
 
 	return New(hinoSvc, statsSvc).Routes()

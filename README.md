@@ -7,8 +7,9 @@ Geração automatizada de slides PowerPoint para hinos e louvores cristãos a pa
 - API REST de leitura sobre o banco de hinos (fase atual)
 - Estatísticas por coletânea
 - Separação inteligente de estrofes e refrões por indentação
+- Geração de slides (PPTX) a partir de um template único, preservando todas as partes do template
 - Revisão de letras (aprovação) *(planejado)*
-- Geração automática de slides (PPTX) a partir de um template único *(planejado)*
+- Endpoint HTTP para download dos slides *(planejado — a geração já está disponível via serviço)*
 
 ## Requisitos
 
@@ -69,7 +70,11 @@ go test ./...
 
 ## Arquitetura
 
-`internal/app` (composition root) monta as dependências e as injeta nos handlers HTTP (`internal/api`) → `internal/services` → `internal/repository` → SQLite (`modernc.org/sqlite`). Detalhes em `AGENTS.md` e `docs/fluxo_execucao.md`.
+`internal/app` (composition root) monta as dependências e as injeta nos handlers HTTP (`internal/api`) → `internal/services` → `internal/repository` → SQLite (`modernc.org/sqlite`). Detalhes em `AGENTS.md`.
+
+### Geração de slides (PPTX)
+
+A geração (`internal/ppt`) manipula o pacote OOXML diretamente (`archive/zip` + `encoding/xml`), preservando **byte-a-byte** todas as partes do template e apenas acrescentando/registrando os slides novos. Para cada slide novo ela sincroniza quatro fontes de verdade — `[Content_Types].xml`, `presentation.xml.rels`, o `.rels` do slide→layout e o `sldIdLst` em `presentation.xml` — de modo que o PowerPoint abra o arquivo sem pedir reparo. O teste `TestGeneratedPackageIntegrity` valida essa consistência. O gooxml é usado somente como validador de reabertura nos testes.
 
 ## Licença
 

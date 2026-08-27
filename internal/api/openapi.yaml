@@ -112,6 +112,61 @@ paths:
         '500':
           $ref: '#/components/responses/ErroInterno'
 
+  /api/coletaneas/{codigo}/hinos/{numero}/slides:
+    get:
+      summary: Gera e retorna o arquivo PPTX com os slides do hino.
+      description: |
+        Apenas hinos revisados (revisado=true) podem ter slides gerados.
+        O arquivo é retornado como download binário.
+      operationId: gerarSlides
+      parameters:
+        - $ref: '#/components/parameters/CodigoColetanea'
+        - name: numero
+          in: path
+          required: true
+          description: Numeração do hino dentro da coletânea.
+          schema:
+            type: integer
+          example: 42
+      responses:
+        '200':
+          description: Arquivo PPTX gerado com sucesso.
+          content:
+            application/vnd.openxmlformats-officedocument.presentationml.presentation:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: Nome do arquivo para download
+              schema:
+                type: string
+              example: 'attachment; filename="CC-042-GRANDE_É_O_SENHOR.pptx"'
+        '400':
+          description: O número não é um inteiro válido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: número inválido
+        '404':
+          description: Hino ou coletânea inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '409':
+          description: Hino não revisado — slides só podem ser gerados para hinos revisados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: hino não revisado (slides só podem ser gerados para hinos revisados)
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+
   /api/stats:
     get:
       summary: Estatísticas agregadas por coletânea.

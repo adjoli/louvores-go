@@ -57,7 +57,7 @@ func seedHinos(t *testing.T) (*repository.SQLiteHinoRepository, *repository.SQLi
 func newTestHinoService(t *testing.T) *HinoService {
 	t.Helper()
 	hinoRepo, coletaneaRepo := seedHinos(t)
-	return NewHinoService(hinoRepo, coletaneaRepo)
+	return NewHinoService(hinoRepo, coletaneaRepo, "")
 }
 
 func TestListarColetaneas(t *testing.T) {

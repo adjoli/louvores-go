@@ -3,13 +3,13 @@ module github.com/adjoli/louvores-go
 go 1.25.0
 
 require (
-	baliance.com/gooxml v1.0.1
 	github.com/baliance/gooxml v0.7.1
 	github.com/joho/godotenv v1.5.1
 	modernc.org/sqlite v1.56.0
 )
 
 require (
+	baliance.com/gooxml v1.0.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
