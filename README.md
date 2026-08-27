@@ -4,12 +4,11 @@ Geração automatizada de slides PowerPoint para hinos e louvores cristãos a pa
 
 ## Funcionalidades
 
-- API REST de leitura sobre o banco de hinos (fase atual)
+- API REST de leitura sobre o banco de hinos
 - Estatísticas por coletânea
 - Separação inteligente de estrofes e refrões por indentação
-- Geração de slides (PPTX) a partir de um template único, preservando todas as partes do template
+- Geração e download de slides (PPTX) a partir de um template único, preservando todas as partes do template
 - Revisão de letras (aprovação) *(planejado)*
-- Endpoint HTTP para download dos slides *(planejado — a geração já está disponível via serviço)*
 
 ## Requisitos
 
@@ -28,7 +27,7 @@ go build ./cmd/louvores
 louvores    # sobe o servidor HTTP (padrão :8080)
 ```
 
-### Endpoints (fase atual: somente leitura)
+### Endpoints
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -36,13 +35,18 @@ louvores    # sobe o servidor HTTP (padrão :8080)
 | `GET` | `/api/coletaneas` | lista as coletâneas |
 | `GET` | `/api/coletaneas/{codigo}/hinos` | hinos da coletânea, ordenados pela numeração |
 | `GET` | `/api/coletaneas/{codigo}/hinos/{numero}` | detalhe do hino (ex.: CC/42) |
+| `GET` | `/api/coletaneas/{codigo}/hinos/{numero}/slides` | gera e baixa o PPTX dos slides do hino |
 | `GET` | `/api/stats` | estatísticas agregadas por coletânea |
 | `GET` | `/api/openapi.yaml` | especificação OpenAPI (embutida no binário) |
 | `GET` | `/api/docs` | documentação interativa (Swagger UI) |
 
 A documentação interativa fica em http://localhost:8080/api/docs — os assets do Swagger UI são carregados via CDN.
 
-Erros retornam `{"error": "..."}` com status 404 (coletânea/hino inexistente), 400 (número inválido) ou 500. O contrato JSON usa snake_case; campos opcionais ausentes no banco são serializados como `null`. Um teste garante a paridade entre as rotas registradas e a spec OpenAPI.
+Erros retornam `{"error": "..."}` com status 404 (coletânea/hino inexistente), 400 (número inválido), 409 (hino não revisado) ou 500. O contrato JSON usa snake_case; campos opcionais ausentes no banco são serializados como `null`. Um teste garante a paridade entre as rotas registradas e a spec OpenAPI.
+
+### Geração de slides
+
+`GET /api/coletaneas/{codigo}/hinos/{numero}/slides` gera o PPTX dos slides do hino e o retorna como download (`{CODIGO}-{NUM:03d}-{TITULO}.pptx`). Apenas hinos revisados geram slides — hinos não revisados retornam **409**.
 
 ## Dados
 
@@ -74,7 +78,7 @@ go test ./...
 
 ### Geração de slides (PPTX)
 
-A geração (`internal/ppt`) manipula o pacote OOXML diretamente (`archive/zip` + `encoding/xml`), preservando **byte-a-byte** todas as partes do template e apenas acrescentando/registrando os slides novos. Para cada slide novo ela sincroniza quatro fontes de verdade — `[Content_Types].xml`, `presentation.xml.rels`, o `.rels` do slide→layout e o `sldIdLst` em `presentation.xml` — de modo que o PowerPoint abra o arquivo sem pedir reparo. O teste `TestGeneratedPackageIntegrity` valida essa consistência. O gooxml é usado somente como validador de reabertura nos testes.
+A geração (`internal/ppt`) manipula o pacote OOXML diretamente (`archive/zip` + `encoding/xml`), preservando **byte-a-byte** todas as partes do template e apenas acrescentando/registrando os slides novos. Para cada slide novo ela sincroniza quatro fontes de verdade — `[Content_Types].xml`, `presentation.xml.rels`, o `.rels` do slide→layout e o `sldIdLst` em `presentation.xml` — de modo que o PowerPoint abra o arquivo sem pedir reparo. O teste `TestGeneratedPackageIntegrity` valida essa consistência. O gooxml é usado somente como validador de reabertura nos testes. O endpoint `GET /api/coletaneas/{codigo}/hinos/{numero}/slides` aciona a geração e devolve o arquivo como download.
 
 ## Licença
 

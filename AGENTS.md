@@ -26,7 +26,7 @@ go build ./cmd/louvores
 
 O binário inicia o servidor HTTP com graceful shutdown (SIGINT/SIGTERM).
 
-Endpoints (fase atual: somente leitura):
+Endpoints (somente leitura; geração de slides é download):
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -34,6 +34,7 @@ Endpoints (fase atual: somente leitura):
 | `GET` | `/api/coletaneas` | lista as coletâneas |
 | `GET` | `/api/coletaneas/{codigo}/hinos` | hinos da coletânea, ordenados pela numeração |
 | `GET` | `/api/coletaneas/{codigo}/hinos/{numero}` | detalhe do hino (ex.: CC/42) |
+| `GET` | `/api/coletaneas/{codigo}/hinos/{numero}/slides` | gera e baixa o PPTX dos slides do hino |
 | `GET` | `/api/stats` | estatísticas agregadas por coletânea |
 | `GET` | `/api/openapi.yaml` | especificação OpenAPI (embed, YAML cru) |
 | `GET` | `/api/docs` | Swagger UI (assets via CDN) |
