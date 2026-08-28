@@ -56,7 +56,7 @@ func Layout(title string, children templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/static/main.css\"><script src=\"https://unpkg.com/htmx.org@2.0.4\"></script></head><body class=\"min-h-screen bg-slate-100 text-slate-900 antialiased\"><header class=\"border-b border-slate-200 bg-white\"><div class=\"mx-auto flex max-w-5xl items-center gap-4 px-4 py-4\"><h1 class=\"text-xl font-bold text-indigo-700\">Louvores</h1><nav class=\"flex gap-4 text-sm text-slate-600\"><a href=\"/stats\" class=\"hover:text-indigo-700\">Estatísticas</a> <a href=\"/slides\" class=\"hover:text-indigo-700\">Slides</a></nav></div></header><main class=\"mx-auto max-w-5xl px-4 py-8\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/static/main.css?v=3\"><script src=\"https://unpkg.com/htmx.org@2.0.4\"></script></head><body class=\"min-h-screen bg-slate-100 text-slate-900 antialiased\"><header class=\"border-b border-slate-200 bg-white\"><div class=\"mx-auto flex max-w-5xl items-center gap-4 px-4 py-3\"><a href=\"/\" class=\"flex items-center gap-2\"><img src=\"/static/logo.png\" alt=\"Louvores\" class=\"h-11 w-auto object-contain\"> <span class=\"text-xl font-bold text-indigo-700\">Louvores</span></a><nav class=\"flex gap-4 text-sm text-slate-600\"><a href=\"/stats\" class=\"hover:text-indigo-700\">Estatísticas</a> <a href=\"/slides\" class=\"hover:text-indigo-700\">Slides</a></nav></div></header><main class=\"mx-auto max-w-5xl px-4 py-8\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

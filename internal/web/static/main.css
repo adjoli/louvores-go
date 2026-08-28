@@ -629,6 +629,10 @@ video {
   display: grid;
 }
 
+.h-11 {
+  height: 2.75rem;
+}
+
 .h-7 {
   height: 1.75rem;
 }
@@ -647,6 +651,10 @@ video {
 
 .w-7 {
   width: 1.75rem;
+}
+
+.w-auto {
+  width: auto;
 }
 
 .w-full {
@@ -807,11 +815,6 @@ video {
 .py-3 {
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
-}
-
-.py-4 {
-  padding-top: 1rem;
-  padding-bottom: 1rem;
 }
 
 .py-6 {
