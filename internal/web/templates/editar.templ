@@ -1,0 +1,110 @@
+// editar.templ — formulário de edição de um hino.
+//
+// Serve em /web/hinos/{codigo}/{numero}/editar. Exibe um formulário para
+// editar os dados editáveis do hino (título, letra, créditos e revisão).
+// Número e coletânea são a chave da rota e não são editáveis. O campo
+// "revisado" é uma checkbox; se o hino já foi revisado, fica somente leitura
+// (revisão é irreversível).
+package templates
+
+import (
+	"fmt"
+
+	"github.com/adjoli/louvores-go/internal/models"
+)
+
+// EditarHinoPage renderiza a página com o formulário de edição do hino,
+// exibindo a coletânea e a numeração como informação (não editáveis).
+templ EditarHinoPage(hino models.Hino, codigo string) {
+	@Layout("Editar Hino · Louvores", editarForm(hino, codigo))
+}
+
+// editarForm monta o formulário. A submissão via POST vai para
+// /web/hinos/{codigo}/{numero}, atualizando os campos no banco.
+templ editarForm(hino models.Hino, codigo string) {
+	<h1 class="mb-6 text-2xl font-bold text-slate-800">Editar Hino</h1>
+
+	<p class="mb-4 text-sm text-slate-600">
+		Coletânea: <span class="font-semibold">{ codigo }</span>
+		· Número: <span class="font-semibold">{ numeroHino(hino) }</span>
+	</p>
+
+	<form
+		class="max-w-2xl space-y-4"
+		method="post"
+		action={ fmt.Sprintf("/web/hinos/%s/%d", codigo, valorNumero(hino)) }
+	>
+		<div>
+			<label for="titulo" class="mb-1 block text-sm font-medium text-slate-700">Título</label>
+			<input
+				id="titulo"
+				name="titulo"
+				type="text"
+				value={ hino.Titulo }
+				required
+				class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
+			>
+		</div>
+
+		<div>
+			<label for="letra" class="mb-1 block text-sm font-medium text-slate-700">Letra</label>
+			<textarea
+				id="letra"
+				name="letra"
+				rows="12"
+				class="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
+			>{ letraTexto(hino) }</textarea>
+		</div>
+
+		<div>
+			<label for="creditos" class="mb-1 block text-sm font-medium text-slate-700">Créditos</label>
+			<input
+				id="creditos"
+				name="creditos"
+				type="text"
+				value={ creditosTexto(hino) }
+				class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
+			>
+		</div>
+
+		<div class="flex items-center gap-2">
+			<input
+				id="revisado"
+				name="revisado"
+				type="checkbox"
+				if hino.Revisado {
+					checked
+					disabled
+				}
+				class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+			>
+			<label for="revisado" class="text-sm text-slate-700">Revisado</label>
+		</div>
+
+		<div class="flex items-center gap-3 pt-2">
+			<button
+				type="submit"
+				class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+			>
+				Salvar
+			</button>
+			<a href="/slides" class="text-sm text-slate-600 hover:text-indigo-700">Cancelar</a>
+		</div>
+	</form>
+}
+
+// letraTexto devolve o conteúdo da letra (ou string vazia se nula).
+func letraTexto(hino models.Hino) string {
+	if hino.Letra == nil {
+		return ""
+	}
+	return *hino.Letra
+}
+
+// creditosTexto devolve o conteúdo dos créditos (ou string vazia se nulo).
+func creditosTexto(hino models.Hino) string {
+	if hino.Creditos == nil {
+		return ""
+	}
+	return *hino.Creditos
+}

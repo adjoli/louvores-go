@@ -2,7 +2,9 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -17,7 +19,10 @@ import (
 //   - número 1: sem letra (Letra nil)
 //   - número 2: com letra, não revisado
 //   - número 3: com letra, revisado
-func setupWeb(t *testing.T) *Web {
+//
+// Retorna também a conexão *sql.DB para testes que precisam inspecionar o
+// banco após uma escrita.
+func setupWeb(t *testing.T) (*Web, *sql.DB) {
 	t.Helper()
 
 	conn, err := database.Open(":memory:")
@@ -61,12 +66,12 @@ func setupWeb(t *testing.T) *Web {
 
 	// O handler da API é opcional para os testes web; passamos nil, que o
 	// Routes() trata com delegação desativada.
-	return New(nil, hinoSvc, statsSvc)
+	return New(nil, hinoSvc, statsSvc), conn
 }
 
 // TestStatsPage serve a página /stats com status 200 e conteúdo HTML.
 func TestStatsPage(t *testing.T) {
-	w := setupWeb(t)
+	w, _ := setupWeb(t)
 
 	req := httptest.NewRequest("GET", "/stats", nil)
 	rec := httptest.NewRecorder()
@@ -86,7 +91,7 @@ func TestStatsPage(t *testing.T) {
 
 // TestStatsData serve o fragmento /web/stats/data com a tabela de estatísticas.
 func TestStatsData(t *testing.T) {
-	w := setupWeb(t)
+	w, _ := setupWeb(t)
 
 	req := httptest.NewRequest("GET", "/web/stats/data", nil)
 	rec := httptest.NewRecorder()
@@ -137,7 +142,7 @@ func TestStatsDataVazio(t *testing.T) {
 // TestSlidesPage serve a página /slides com status 200, o seletor HTMX e as
 // opções de coletânea.
 func TestSlidesPage(t *testing.T) {
-	w := setupWeb(t)
+	w, _ := setupWeb(t)
 
 	req := httptest.NewRequest("GET", "/slides", nil)
 	rec := httptest.NewRecorder()
@@ -162,7 +167,7 @@ func TestSlidesPage(t *testing.T) {
 // verificando numeração zero-padded, cores por estado e o link de geração
 // apenas para o hino revisado.
 func TestSlidesHinos(t *testing.T) {
-	w := setupWeb(t)
+	w, _ := setupWeb(t)
 
 	req := httptest.NewRequest("GET", "/web/slides/hinos?codigo=CC", nil)
 	rec := httptest.NewRecorder()
@@ -218,7 +223,7 @@ func TestSlidesHinos(t *testing.T) {
 
 // TestSlidesHinosSemCodigo retorna 400 quando o parâmetro codigo falta.
 func TestSlidesHinosSemCodigo(t *testing.T) {
-	w := setupWeb(t)
+	w, _ := setupWeb(t)
 
 	req := httptest.NewRequest("GET", "/web/slides/hinos", nil)
 	rec := httptest.NewRecorder()
@@ -231,7 +236,7 @@ func TestSlidesHinosSemCodigo(t *testing.T) {
 
 // TestSlidesHinosColetaneaInexistente retorna 404 para código desconhecido.
 func TestSlidesHinosColetaneaInexistente(t *testing.T) {
-	w := setupWeb(t)
+	w, _ := setupWeb(t)
 
 	req := httptest.NewRequest("GET", "/web/slides/hinos?codigo=ZZ", nil)
 	rec := httptest.NewRecorder()
@@ -239,5 +244,169 @@ func TestSlidesHinosColetaneaInexistente(t *testing.T) {
 
 	if rec.Code != 404 {
 		t.Fatalf("status = %d, esperado 404", rec.Code)
+	}
+}
+
+// TestEditarHinoPage serve o formulário de edição com os dados do hino.
+func TestEditarHinoPage(t *testing.T) {
+	w, _ := setupWeb(t)
+
+	req := httptest.NewRequest("GET", "/web/hinos/CC/2/editar", nil)
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, esperado 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Editar Hino") {
+		t.Error("página não contém o título 'Editar Hino'")
+	}
+	if !strings.Contains(body, `name="titulo"`) || !strings.Contains(body, `name="letra"`) {
+		t.Error("formulário não contém os campos titulo/letra")
+	}
+	if !strings.Contains(body, `name="revisado"`) {
+		t.Error("formulário não contém o campo revisado")
+	}
+	if !strings.Contains(body, "002") {
+		t.Error("página não exibe a numeração do hino")
+	}
+}
+
+// TestEditarHinoPageRevisadoDisabled garante que o checkbox revisado fica
+// desabilitado (read-only) quando o hino já foi revisado.
+func TestEditarHinoPageRevisadoDisabled(t *testing.T) {
+	w, _ := setupWeb(t) // hino 3 é revisado
+
+	req := httptest.NewRequest("GET", "/web/hinos/CC/3/editar", nil)
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, esperado 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `id="revisado"`) || !strings.Contains(body, `disabled`) {
+		t.Error("checkbox revisado deveria estar desabilitado para hino revisado")
+	}
+	if !strings.Contains(body, `checked`) {
+		t.Error("checkbox revisado deveria estar marcado")
+	}
+}
+
+// TestEditarHinoPageRevisadoNaoMarcado garante que, para hino não revisado,
+// o checkbox NÃO vem marcado nem desabilitado (atributo ausente).
+func TestEditarHinoPageRevisadoNaoMarcado(t *testing.T) {
+	w, _ := setupWeb(t) // hino 2 não é revisado
+
+	req := httptest.NewRequest("GET", "/web/hinos/CC/2/editar", nil)
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, esperado 200", rec.Code)
+	}
+	body := rec.Body.String()
+	// O checkbox deve existir sem os atributos checked/disabled.
+	if !strings.Contains(body, `id="revisado"`) {
+		t.Fatal("checkbox revisado ausente")
+	}
+	// Extrai apenas o trecho do input revisado para evitar falsos positivos.
+	start := strings.Index(body, `id="revisado"`)
+	end := strings.Index(body[start:], ">") + start
+	input := body[start:end]
+	if strings.Contains(input, "checked") {
+		t.Error("checkbox revisado deveria estar desmarcado para hino não revisado")
+	}
+	if strings.Contains(input, "disabled") {
+		t.Error("checkbox revisado deveria estar habilitado para hino não revisado")
+	}
+}
+
+// TestEditarHinoPageNaoEncontrado retorna 404 para hino/coletânea inexistentes.
+func TestEditarHinoPageNaoEncontrado(t *testing.T) {
+	w, _ := setupWeb(t)
+
+	req := httptest.NewRequest("GET", "/web/hinos/CC/999/editar", nil)
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+
+	if rec.Code != 404 {
+		t.Fatalf("status = %d, esperado 404", rec.Code)
+	}
+}
+
+// TestSalvarHino submete o formulário e verifica redirecionamento (303) e
+// persistência das alterações com Title Case na letra.
+func TestSalvarHino(t *testing.T) {
+	w, conn := setupWeb(t)
+
+	form := url.Values{
+		"titulo":   {"Novo Título"},
+		"letra":    {"letra em minúsculas"},
+		"creditos": {"Novos créditos"},
+		"revisado": {"on"},
+	}
+	req := httptest.NewRequest("POST", "/web/hinos/CC/2", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+
+	if rec.Code != 303 {
+		t.Fatalf("status = %d, esperado 303 (See Other)", rec.Code)
+	}
+
+	// Verifica a persistência lendo direto do repositório via serviço.
+	hinoSvc := services.NewHinoService(
+		repository.NewSQLiteHinoRepository(conn),
+		repository.NewSQLiteColetaneaRepository(conn),
+		"",
+	)
+	hino, err := hinoSvc.ObterHino(context.Background(), "CC", 2)
+	if err != nil {
+		t.Fatalf("ObterHino: %v", err)
+	}
+	if hino.Titulo != "Novo Título" {
+		t.Errorf("titulo = %q", hino.Titulo)
+	}
+	if hino.Letra == nil || *hino.Letra != "Letra Em Minúsculas" {
+		t.Errorf("letra = %v, esperado Title Case", hino.Letra)
+	}
+	if !hino.Revisado {
+		t.Error("revisado deveria ser true")
+	}
+}
+
+// TestSalvarHinoRevisaoIrreversivel garante que o POST não desmarca um hino
+// já revisado.
+func TestSalvarHinoRevisaoIrreversivel(t *testing.T) {
+	w, conn := setupWeb(t) // hino 3 é revisado
+
+	form := url.Values{
+		"titulo":   {"Revisado Título"},
+		"letra":    {"letra"},
+		"creditos": {"Autor"},
+		// revisado ausente = desmarcado
+	}
+	req := httptest.NewRequest("POST", "/web/hinos/CC/3", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+
+	if rec.Code != 303 {
+		t.Fatalf("status = %d, esperado 303", rec.Code)
+	}
+
+	hinoSvc := services.NewHinoService(
+		repository.NewSQLiteHinoRepository(conn),
+		repository.NewSQLiteColetaneaRepository(conn),
+		"",
+	)
+	hino, err := hinoSvc.ObterHino(context.Background(), "CC", 3)
+	if err != nil {
+		t.Fatalf("ObterHino: %v", err)
+	}
+	if !hino.Revisado {
+		t.Error("revisado deveria permanecer true (irreversível)")
 	}
 }

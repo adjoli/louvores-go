@@ -92,6 +92,55 @@ func (s *HinoService) ObterHino(
 	return s.hinoRepo.FindByNumero(ctx, coletanea.ID, numero)
 }
 
+// HinoUpdate carrega os campos editáveis de um hino enviados pelo formulário
+// web. Numeração e coletânea são a chave da rota e não podem ser alterados.
+type HinoUpdate struct {
+	Titulo   string
+	Letra    string
+	Creditos string
+	Revisado bool
+}
+
+// AtualizarHino persiste as alterações de um hino (título, letra, créditos e
+// revisão). A letra é convertida para Title Case antes de salvar, evitando
+// texto todo em minúsculas ou maiúsculas.
+//
+// Revisão é irreversível: se o hino já está revisado, o campo Revisado é
+// mantido como true mesmo que o formulário o envie desmarcado.
+// Retorna repository.ErrColetaneaNotFound ou repository.ErrHinoNotFound.
+func (s *HinoService) AtualizarHino(
+	ctx context.Context,
+	codigoColetanea string,
+	numero int,
+	upd HinoUpdate,
+) (*models.Hino, error) {
+	coletanea, err := s.coletaneaRepo.FindByCodigo(ctx, codigoColetanea)
+	if err != nil {
+		return nil, err
+	}
+
+	hino, err := s.hinoRepo.FindByNumero(ctx, coletanea.ID, numero)
+	if err != nil {
+		return nil, err
+	}
+
+	// A letra é normalizada para Title Case antes de persistir.
+	upd.Letra = titularLetra(upd.Letra)
+
+	hino.Titulo = upd.Titulo
+	hino.Letra = &upd.Letra
+	hino.Creditos = &upd.Creditos
+	if !hino.Revisado {
+		hino.Revisado = upd.Revisado
+	}
+
+	if err := s.hinoRepo.Update(ctx, hino); err != nil {
+		return nil, err
+	}
+
+	return hino, nil
+}
+
 // GerarSlides gera o arquivo PPTX com os slides do hino.
 // Apenas hinos revisados (Revisado=true) podem ter slides gerados.
 // Retorna ErrHinoNotReviewed se o hino não for revisado.
@@ -294,4 +343,46 @@ func titleCase(s string) string {
 		words[i] = strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
 	}
 	return strings.Join(words, " ")
+}
+
+// titularLetra converte a letra do hino para Title Case antes de salvar,
+// evitando que o texto fique todo em minúsculas ou todo em maiúsculas.
+//
+// A conversão é aplicada palavra a palavra apenas quando a linha está
+// uniformemente em minúsculas ou em maiúsculas; texto já com caixa mista é
+// preservado (não estraga nomes já corretamente capitalizados). A indentação
+// inicial é mantida, pois é usada para detectar refrões. Linhas em branco
+// (separadores de blocos) são preservadas.
+func titularLetra(s string) string {
+	// Normaliza quebras de linha para LF antes de processar: o textarea do
+	// formulário pode enviar CRLF, e o "\r" restante contaminaria o Title Case
+	// e a separação de blocos (linha em branco extra nos slides).
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if trimmed == strings.ToLower(trimmed) || trimmed == strings.ToUpper(trimmed) {
+			lines[i] = titularLinha(line)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// titularLinha aplica Title Case a uma linha, preservando a indentação
+// inicial (espaços/tabs usados para marcar refrões).
+func titularLinha(line string) string {
+	// Separa a indentação da primeira palavra.
+	trimmed := strings.TrimLeft(line, " \t")
+	indent := line[:len(line)-len(trimmed)]
+
+	words := strings.Fields(trimmed)
+	for i, w := range words {
+		words[i] = strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
+	}
+	return indent + strings.Join(words, " ")
 }

@@ -7,12 +7,14 @@ import (
 	"github.com/adjoli/louvores-go/internal/repository"
 )
 
-// HinoRepository define as operações de LEITURA para hinos usadas em produção.
-// Implementada por repository.SQLiteHinoRepository.
-// Escrita (Create/Update/Delete) é feita no repositório concreto, não exposta na interface.
+// HinoRepository define as operações de persistência de hinos usadas em
+// produção. Implementada por repository.SQLiteHinoRepository.
+// A interface expõe apenas leitura e Update (edição via interface web);
+// Create/Delete ficam restritos ao repositório concreto.
 type HinoRepository interface {
 	ListByColetanea(ctx context.Context, coletaneaID int64) ([]models.Hino, error)
 	FindByNumero(ctx context.Context, coletaneaID int64, numero int) (*models.Hino, error)
+	Update(ctx context.Context, hino *models.Hino) error
 	StatsPorColetanea(ctx context.Context) ([]repository.StatsRow, error)
 }
 

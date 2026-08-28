@@ -35,6 +35,40 @@ func TestProcessarHinoRefraoComTab(t *testing.T) {
 	assertPartes(t, seq, want)
 }
 
+// TestProcessarHinoCRLF garante que quebras de linha CRLF (textarea do
+// formulário) são normalizadas para LF, evitando linhas em branco extras.
+func TestProcessarHinoCRLF(t *testing.T) {
+	texto := "Estrofe um\r\n\r\n    Refrão santo\r\n    Segunda linha"
+	seq := ProcessarHino(texto)
+
+	want := []domain.ParteHino{
+		{Txt: "Estrofe um", Numero: 1, Tipo: domain.TipoParteEstrofe},
+		{Txt: "Refrão santo\nSegunda linha", Numero: 2, Tipo: domain.TipoParteRefrao},
+	}
+	assertPartes(t, seq, want)
+}
+
+// TestNormalizeNewlines cobre os três formatos de quebra de linha.
+func TestNormalizeNewlines(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "lf", in: "a\nb", want: "a\nb"},
+		{name: "crlf", in: "a\r\nb", want: "a\nb"},
+		{name: "cr", in: "a\rb", want: "a\nb"},
+		{name: "misturado", in: "a\r\nb\rc\n\nd", want: "a\nb\nc\n\nd"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeNewlines(tt.in); got != tt.want {
+				t.Errorf("normalizeNewlines(%q) = %q, esperado %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestProcessarHinoMesclado(t *testing.T) {
 	texto := "Estrofe um\n\n    Refrão\n    Refrão 2\n\nEstrofe dois\n\n\nEstrofe três"
 	seq := ProcessarHino(texto)

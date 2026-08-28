@@ -32,6 +32,13 @@ var blocoRegex = regexp.MustCompile(`\n\s*\n`)
 //
 // Retorna domain.SequenciaHino contendo todas as partes em ordem.
 func ProcessarHino(texto string) domain.SequenciaHino {
+	// Normaliza quebras de linha: formulários (textarea) e importações podem
+	// trazer CRLF ("\r\n") ou CR ("\r") isolado. Sem essa normalização, cada
+	// linha ficaria terminando em "\r", o que gera uma linha em branco extra
+	// ao renderizar os slides. A ordem importa: primeiro "\r\n", depois "\r"
+	// isolado, para não duplicar.
+	texto = normalizeNewlines(texto)
+
 	// Remove quebras de linha das pontas para evitar blocos vazios no split
 	blocos := blocoRegex.Split(strings.Trim(texto, "\n"), -1)
 
@@ -101,4 +108,14 @@ func joinLTrim(linhas []string) string {
 		limpas = append(limpas, strings.TrimLeft(linha, " \t"))
 	}
 	return strings.Join(limpas, "\n")
+}
+
+// normalizeNewlines converte todas as quebras de linha para "\n" (LF).
+// Entradas comuns são CRLF ("\r\n", do Windows/textarea) e CR isolado ("\r",
+// macOS antigo). A ordem de substituição importa: tratar "\r\n" antes do "\r"
+// isolado evita criar "\n\n" a partir de um único "\r\n".
+func normalizeNewlines(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	return s
 }

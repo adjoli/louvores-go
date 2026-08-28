@@ -21,6 +21,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/a-h/templ"
 	"github.com/adjoli/louvores-go/internal/repository"
@@ -64,6 +65,8 @@ func (w *Web) Routes() http.Handler {
 	mux.HandleFunc("GET /web/stats/data", w.handleStatsData)
 	mux.HandleFunc("GET /slides", w.handleSlidesPage)
 	mux.HandleFunc("GET /web/slides/hinos", w.handleSlidesHinos)
+	mux.HandleFunc("GET /web/hinos/{codigo}/{numero}/editar", w.handleEditarHinoPage)
+	mux.HandleFunc("POST /web/hinos/{codigo}/{numero}", w.handleSalvarHino)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("internal/web/static"))))
 
 	return mux
@@ -139,4 +142,70 @@ func (w *Web) handleSlidesHinos(wr http.ResponseWriter, r *http.Request) {
 	if err := templates.HinosGrid(hinos, codigo).Render(r.Context(), wr); err != nil {
 		slog.Error("renderizar grade de hinos", "coletanea", codigo, "erro", err)
 	}
+}
+
+// handleEditarHinoPage serve o formulário de edição de um hino, acessado pelo
+// ícone edit.png no card. Número e coletânea vêm da rota (não editáveis).
+func (w *Web) handleEditarHinoPage(wr http.ResponseWriter, r *http.Request) {
+	codigo := r.PathValue("codigo")
+	numero, err := strconv.Atoi(r.PathValue("numero"))
+	if err != nil {
+		http.Error(wr, "número inválido", http.StatusBadRequest)
+		return
+	}
+
+	hino, err := w.hinoSvc.ObterHino(r.Context(), codigo, numero)
+	if err != nil {
+		if errors.Is(err, repository.ErrColetaneaNotFound) || errors.Is(err, repository.ErrHinoNotFound) {
+			http.Error(wr, "hino não encontrado", http.StatusNotFound)
+			return
+		}
+		slog.Error("buscar hino para edição", "coletanea", codigo, "numero", numero, "erro", err)
+		http.Error(wr, "erro interno", http.StatusInternalServerError)
+		return
+	}
+
+	if err := templates.EditarHinoPage(*hino, codigo).Render(r.Context(), wr); err != nil {
+		slog.Error("renderizar formulário de edição", "coletanea", codigo, "numero", numero, "erro", err)
+	}
+}
+
+// handleSalvarHino processa o POST do formulário de edição, aplica a
+// conversão Title Case na letra (na camada de serviço) e redireciona de volta
+// para a página de geração de slides. Se o hino já foi revisado, a revisão
+// não é revertida (regra tratada no serviço).
+func (w *Web) handleSalvarHino(wr http.ResponseWriter, r *http.Request) {
+	codigo := r.PathValue("codigo")
+	numero, err := strconv.Atoi(r.PathValue("numero"))
+	if err != nil {
+		http.Error(wr, "número inválido", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(wr, "formulário inválido", http.StatusBadRequest)
+		return
+	}
+
+	upd := services.HinoUpdate{
+		Titulo:   r.FormValue("titulo"),
+		Letra:    r.FormValue("letra"),
+		Creditos: r.FormValue("creditos"),
+		Revisado: r.FormValue("revisado") == "on",
+	}
+
+	if _, err := w.hinoSvc.AtualizarHino(r.Context(), codigo, numero, upd); err != nil {
+		if errors.Is(err, repository.ErrColetaneaNotFound) || errors.Is(err, repository.ErrHinoNotFound) {
+			http.Error(wr, "hino não encontrado", http.StatusNotFound)
+			return
+		}
+		slog.Error("salvar alterações do hino", "coletanea", codigo, "numero", numero, "erro", err)
+		http.Error(wr, "erro interno", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("hino atualizado", "coletanea", codigo, "numero", numero)
+
+	// Redireciona para a listagem da coletânea editada (PRG: evitar re-submit).
+	http.Redirect(wr, r, "/slides", http.StatusSeeOther)
 }

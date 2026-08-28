@@ -276,3 +276,151 @@ func TestGerarSlidesColetaneaInexistente(t *testing.T) {
 		t.Fatalf("erro = %v, esperado %v", err, repository.ErrColetaneaNotFound)
 	}
 }
+
+func TestTitularLetra(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "tudo em minúsculas com refrão indentado",
+			in:   "estrofe um\n\n    refrão santo",
+			want: "Estrofe Um\n\n    Refrão Santo",
+		},
+		{
+			name: "tudo em maiúsculas",
+			in:   "LOUVOR AO SENHOR",
+			want: "Louvor Ao Senhor",
+		},
+		{
+			name: "caixa mista preservada",
+			in:   "Grandioso és Tu, Senhor",
+			want: "Grandioso és Tu, Senhor",
+		},
+		{
+			name: "linhas em branco preservadas",
+			in:   "uma\n\n\ndois",
+			want: "Uma\n\n\nDois",
+		},
+		{
+			name: "linha em branco no meio preserva separador",
+			in:   "primeiro\n\n    refrão",
+			want: "Primeiro\n\n    Refrão",
+		},
+		{
+			name: "CRLF normalizado para LF",
+			in:   "primeiro\r\n\r\n    refrão santo",
+			want: "Primeiro\n\n    Refrão Santo",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := titularLetra(tt.in); got != tt.want {
+				t.Errorf("titularLetra(%q) = %q, esperado %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestAtualizarHino verifica que AtualizarHino persiste as alterações e aplica
+// Title Case na letra.
+func TestAtualizarHino(t *testing.T) {
+	svc := newTestHinoService(t)
+
+	_, err := svc.AtualizarHino(context.Background(), "CC", 42, HinoUpdate{
+		Titulo:   "Novo Título",
+		Letra:    "letra em minúsculas\n\n    refrão",
+		Creditos: "Novos créditos",
+		Revisado: true,
+	})
+	if err != nil {
+		t.Fatalf("AtualizarHino: %v", err)
+	}
+
+	hino, err := svc.ObterHino(context.Background(), "CC", 42)
+	if err != nil {
+		t.Fatalf("ObterHino: %v", err)
+	}
+	if hino.Titulo != "Novo Título" {
+		t.Errorf("titulo = %q", hino.Titulo)
+	}
+	if hino.Letra == nil || *hino.Letra != "Letra Em Minúsculas\n\n    Refrão" {
+		t.Errorf("letra = %v, esperado Title Case", hino.Letra)
+	}
+	if hino.Creditos == nil || *hino.Creditos != "Novos créditos" {
+		t.Errorf("creditos = %v", hino.Creditos)
+	}
+	if !hino.Revisado {
+		t.Error("revisado deveria ser true")
+	}
+}
+
+// TestAtualizarHinoNormalizaCRLF garante que quebras de linha CRLF vindas do
+// formulário são normalizadas para LF ao salvar.
+func TestAtualizarHinoNormalizaCRLF(t *testing.T) {
+	svc := newTestHinoService(t)
+
+	_, err := svc.AtualizarHino(context.Background(), "CC", 42, HinoUpdate{
+		Titulo:   "Título",
+		Letra:    "estrofe um\r\n\r\n    refrão santo",
+		Creditos: "Autor",
+	})
+	if err != nil {
+		t.Fatalf("AtualizarHino: %v", err)
+	}
+
+	hino, err := svc.ObterHino(context.Background(), "CC", 42)
+	if err != nil {
+		t.Fatalf("ObterHino: %v", err)
+	}
+	if hino.Letra == nil || *hino.Letra != "Estrofe Um\n\n    Refrão Santo" {
+		t.Errorf("letra = %v, esperado LF normalizado e Title Case", hino.Letra)
+	}
+}
+
+// TestAtualizarHinoRevisaoIrreversivel garante que um hino já revisado não
+// pode ser desmarcado: mesmo enviando Revisado=false, permanece true.
+func TestAtualizarHinoRevisaoIrreversivel(t *testing.T) {
+	svc := newTestHinoService(t)
+
+	// Marca o hino 42 como revisado primeiro.
+	if _, err := svc.AtualizarHino(context.Background(), "CC", 42, HinoUpdate{
+		Titulo:   "Grandioso Pai",
+		Letra:    "Letra",
+		Creditos: "Autor",
+		Revisado: true,
+	}); err != nil {
+		t.Fatalf("marcar revisado: %v", err)
+	}
+
+	// Tenta desmarcar.
+	if _, err := svc.AtualizarHino(context.Background(), "CC", 42, HinoUpdate{
+		Titulo:   "Grandioso Pai",
+		Letra:    "Letra",
+		Creditos: "Autor",
+		Revisado: false,
+	}); err != nil {
+		t.Fatalf("AtualizarHino: %v", err)
+	}
+
+	hino, err := svc.ObterHino(context.Background(), "CC", 42)
+	if err != nil {
+		t.Fatalf("ObterHino: %v", err)
+	}
+	if !hino.Revisado {
+		t.Error("revisado deveria permanecer true (irreversível)")
+	}
+}
+
+// TestAtualizarHinoNaoEncontrado valida os erros de coletânea e hino inexistentes.
+func TestAtualizarHinoNaoEncontrado(t *testing.T) {
+	svc := newTestHinoService(t)
+
+	if _, err := svc.AtualizarHino(context.Background(), "CC", 999, HinoUpdate{}); !errors.Is(err, repository.ErrHinoNotFound) {
+		t.Fatalf("erro = %v, esperado %v", err, repository.ErrHinoNotFound)
+	}
+	if _, err := svc.AtualizarHino(context.Background(), "XX", 42, HinoUpdate{}); !errors.Is(err, repository.ErrColetaneaNotFound) {
+		t.Fatalf("erro = %v, esperado %v", err, repository.ErrColetaneaNotFound)
+	}
+}

@@ -88,7 +88,7 @@ templ HinoCard(h models.Hino, codigo string) {
 		<div class="mt-auto flex items-center justify-center gap-1 pt-1">
 			<a
 				class="inline-flex items-center justify-center rounded p-1 transition hover:bg-black/10"
-				href="#"
+				href={ fmt.Sprintf("/web/hinos/%s/%d/editar", codigo, valorNumero(h)) }
 				title="Editar hino"
 				aria-label="Editar hino"
 			>

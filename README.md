@@ -5,11 +5,12 @@ Geração automatizada de slides PowerPoint para hinos e louvores cristãos a pa
 ## Funcionalidades
 
 - API REST de leitura sobre o banco de hinos
-- Interface web (templ + HTMX + Tailwind) consumindo a API — ver estatísticas
+- Interface web (templ + HTMX + Tailwind) consumindo a API — ver estatísticas e slides
 - Estatísticas por coletânea
 - Separação inteligente de estrofes e refrões por indentação
+- Edição de hinos pela interface web (título, letra com Title Case, créditos e revisão irreversível)
 - Geração e download de slides (PPTX) a partir de um template único, preservando todas as partes do template
-- Revisão de letras (aprovação) *(planejado)*
+- Revisão de letras (aprovação) — implementada na edição, irreversível
 
 ## Requisitos
 
@@ -56,9 +57,11 @@ Uma interface web HTML é servida no mesmo binário, em `http://localhost:8080/`
 | `GET /web/stats/data` | fragmento HTML com a tabela (consumido pelo HTMX) |
 | `GET /slides` | página de geração de slides (seletor de coletânea + grade de hinos) |
 | `GET /web/slides/hinos` | fragmento HTML com os cards dos hinos (`?codigo=`, consumido pelo HTMX) |
+| `GET /web/hinos/{codigo}/{numero}/editar` | formulário de edição do hino (título, letra, créditos, revisão) |
+| `POST /web/hinos/{codigo}/{numero}` | persiste as alterações do hino e redireciona (303) para `/slides` |
 | `GET /static/` | arquivos estáticos (CSS gerado pelo Tailwind) |
 
-A página `/stats` renderiza o layout base e um placeholder; o HTMX faz `GET /web/stats/data` (`hx-trigger="load"`) e substitui o placeholder pelo fragmento `StatsTable`. A página `/slides` exibe um combobox de coletâneas; ao trocar a seleção, o HTMX busca `GET /web/slides/hinos?codigo=` e substitui o container pela grade de cards dos hinos (responsiva, até 8 colunas, altura uniforme, conteúdo centralizado). Cada card mostra a numeração em destaque (três dígitos, fonte maior que o título) com o título abaixo, e cor de fundo por estado (sem letra `#FFB7B2`, não revisado `#FFF5BA`, revisado `#B5EAD7`). No rodapé do card há os ícones de ação: edição (`edit.png`, sempre visível, futuro) e geração de slide (`ppt.png`, apenas hinos revisados, apontando para o endpoint de download). Os handlers web reutilizam os mesmos serviços da API (sem chamada HTTP interna). Detalhes em `AGENTS.md`.
+A página `/stats` renderiza o layout base e um placeholder; o HTMX faz `GET /web/stats/data` (`hx-trigger="load"`) e substitui o placeholder pelo fragmento `StatsTable`. A página `/slides` exibe um combobox de coletâneas; ao trocar a seleção, o HTMX busca `GET /web/slides/hinos?codigo=` e substitui o container pela grade de cards dos hinos (responsiva, até 8 colunas, altura uniforme, conteúdo centralizado). Cada card mostra a numeração em destaque (três dígitos, fonte maior que o título) com o título abaixo, e cor de fundo por estado (sem letra `#FFB7B2`, não revisado `#FFF5BA`, revisado `#B5EAD7`). No rodapé do card há os ícones de ação: edição (`edit.png`, abre o formulário de edição) e geração de slide (`ppt.png`, apenas hinos revisados, apontando para o endpoint de download). Na edição, a letra é convertida para **Title Case** antes de salvar, e a revisão é **irreversível** (checkbox desabilitado para hinos já revisados). Os handlers web reutilizam os mesmos serviços da API (sem chamada HTTP interna). Detalhes em `AGENTS.md`.
 
 ### Geração de slides
 
