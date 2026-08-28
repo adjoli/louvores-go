@@ -1,0 +1,140 @@
+// slides.templ — página e fragmentos de geração de slides.
+//
+// A página é servida em /slides e apresenta um seletor de coletânea
+// (combobox). Ao trocar a seleção, o HTMX dispara GET em /web/slides/hinos
+// (hx-trigger="change", hx-include="this" envia ?codigo=<código>) e substitui
+// o conteúdo do container #hinos (hx-target/hx-swap) pela grade de cards.
+//
+// Cada hino é renderizado como um card de cantos arredondados cuja cor de
+// fundo varia conforme o estado do hino:
+//   - sem letra           → #FFB7B2
+//   - letra não revisada  → #FFF5BA
+//   - revisado            → #B5EAD7
+//
+// Somente hinos revisados exibem o link para gerar o slide (download do
+// endpoint existente /api/coletaneas/{codigo}/hinos/{numero}/slides).
+package templates
+
+import (
+	"fmt"
+
+	"github.com/adjoli/louvores-go/internal/models"
+)
+
+// SlidesPage renderiza a página de geração de slides com o seletor de
+// coletâneas e o container placeholder para a grade de hinos.
+templ SlidesPage(coletaneas []models.Coletanea) {
+	@Layout("Geração de Slides · Louvores", slidesContent(coletaneas))
+}
+
+// slidesContent monta o seletor de coletânea e o container da grade de hinos.
+templ slidesContent(coletaneas []models.Coletanea) {
+	<h1 class="mb-6 text-2xl font-bold text-slate-800">Geração de Slides</h1>
+
+	<label for="coletanea" class="mb-2 block text-sm font-medium text-slate-700">
+		Coletânea
+	</label>
+	<select
+		id="coletanea"
+		name="codigo"
+		class="mb-6 w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
+		hx-get="/web/slides/hinos"
+		hx-trigger="change"
+		hx-include="this"
+		hx-target="#hinos"
+		hx-swap="innerHTML"
+	>
+		<option value="" disabled selected>Selecione uma coletânea</option>
+		for _, c := range coletaneas {
+			<option value={ c.Codigo }>{ c.Titulo }</option>
+		}
+	</select>
+
+	<div id="hinos" class="min-h-16 text-sm text-slate-400">
+		Selecione uma coletânea para listar os hinos.
+	</div>
+}
+
+// HinosGrid é o fragmento com a grade de cards dos hinos da coletânea,
+// servido por /web/slides/hinos e consumido pelo HTMX.
+templ HinosGrid(hinos []models.Hino, codigo string) {
+	if len(hinos) == 0 {
+		<div class="rounded-lg bg-white p-8 text-center text-sm text-slate-500 shadow ring-1 ring-slate-200">
+			Nenhum hino cadastrado nesta coletânea.
+		</div>
+	} else {
+		<div class="grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+			for _, h := range hinos {
+				@HinoCard(h, codigo)
+			}
+		</div>
+	}
+}
+
+// HinoCard renderiza um card de hino com cantos arredondados, numeração em
+// destaque (três dígitos, zeros à esquerda), título abaixo e uma linha de
+// ações no rodapé: edição (sempre visível, futura) e geração de slide
+// (apenas hinos revisados). O rodapé é empurrado para a base do card com
+// mt-auto e as ações ficam centralizadas horizontalmente.
+templ HinoCard(h models.Hino, codigo string) {
+	<div
+		class="flex h-full flex-col items-center gap-2 rounded-lg p-4 text-center shadow ring-1 ring-slate-200"
+		style={ fmt.Sprintf("background-color: %s", corFundoHino(h)) }
+	>
+		<span class="text-2xl font-bold leading-tight text-slate-700">
+			{ numeroHino(h) }
+		</span>
+		<span class="text-sm font-medium text-slate-800">{ h.Titulo }</span>
+		<div class="mt-auto flex items-center justify-center gap-1 pt-1">
+			<a
+				class="inline-flex items-center justify-center rounded p-1 transition hover:bg-black/10"
+				href="#"
+				title="Editar hino"
+				aria-label="Editar hino"
+			>
+				<img src="/static/edit.png" alt="Editar hino" class="h-7 w-7 object-contain">
+			</a>
+			if h.Revisado {
+				<a
+					class="inline-flex items-center justify-center rounded p-1 transition hover:bg-black/10"
+					href={ fmt.Sprintf("/api/coletaneas/%s/hinos/%d/slides", codigo, valorNumero(h)) }
+					title="Gerar slide"
+					aria-label="Gerar slide"
+				>
+					<img src="/static/ppt.png" alt="Gerar slide" class="h-7 w-7 object-contain">
+				</a>
+			}
+		</div>
+	</div>
+}
+
+// corFundoHino devolve a cor de fundo do card conforme o estado do hino:
+// sem letra (#FFB7B2), letra não revisada (#FFF5BA) ou revisado (#B5EAD7).
+func corFundoHino(h models.Hino) string {
+	switch {
+	case h.Letra == nil:
+		return "#FFB7B2"
+	case !h.Revisado:
+		return "#FFF5BA"
+	default:
+		return "#B5EAD7"
+	}
+}
+
+// numeroHino formata a numeração em três dígitos com zeros à esquerda
+// (ex.: 042). Hinos sem numeração exibem "---".
+func numeroHino(h models.Hino) string {
+	if h.Numeracao == nil {
+		return "---"
+	}
+	return fmt.Sprintf("%03d", *h.Numeracao)
+}
+
+// valorNumero retorna o valor inteiro da numeração, usando 0 para hinos sem
+// numeração (necessário para montar a URL de geração de slide).
+func valorNumero(h models.Hino) int {
+	if h.Numeracao == nil {
+		return 0
+	}
+	return *h.Numeracao
+}

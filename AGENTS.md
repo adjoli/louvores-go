@@ -54,6 +54,8 @@ Interface web (HTML via templ+HTMX, servida no mesmo binário):
 |---|---|---|
 | `GET` | `/stats` | página de estatísticas (shell + placeholder HTMX) |
 | `GET` | `/web/stats/data` | fragmento HTML com a tabela de estatísticas (consumido pelo HTMX) |
+| `GET` | `/slides` | página de geração de slides (seletor de coletânea + grade de hinos) |
+| `GET` | `/web/slides/hinos` | fragmento HTML com a grade de cards dos hinos de uma coletânea (`?codigo=`), consumido pelo HTMX |
 | `GET` | `/static/` | arquivos estáticos (main.css gerado pelo Tailwind) |
 
 As rotas web são mais específicas que o `/` e, por isso, têm prioridade no
@@ -80,7 +82,7 @@ internal/
   api/                      Handlers HTTP finos → JSON; erros → 400/404/500
   web/
     handler.go              Interface web: mux raiz (API em "/" + páginas/fragmentos/static)
-    templates/*.templ       Views templ (layout base + stats) → _templ.go gerado
+    templates/*.templ       Views templ (layout base + stats + slides) → _templ.go gerado
     static/                 input.css (fonte Tailwind) + main.css (gerado)
   domain/slide_parts.go     TipoParte, ParteHino, SequenciaHino
   processors/lyrics_parser.go  Letra → estrofes/refrões (por indentação)
@@ -91,7 +93,7 @@ internal/
 
 Fluxo da API: HTTP (internal/api) → Services → Repository → SQLite. Erros como valores (sentinelas `repository.ErrHinoNotFound`, `repository.ErrColetaneaNotFound`). Escrita (revisão de letras, geração de slides via download) será adicionada em fases futuras sobre os mesmos repositórios.
 
-Fluxo da interface web: HTTP (internal/web) → Services (mesmos serviços da API, sem chamada HTTP interna) → Templates templ + HTMX. A página `/stats` carrega um placeholder que o HTMX preenche ao fazer `GET /web/stats/data` (`hx-trigger="load"`), devolvendo apenas o fragmento `StatsTable`.
+Fluxo da interface web: HTTP (internal/web) → Services (mesmos serviços da API, sem chamada HTTP interna) → Templates templ + HTMX. A página `/stats` carrega um placeholder que o HTMX preenche ao fazer `GET /web/stats/data` (`hx-trigger="load"`), devolvendo apenas o fragmento `StatsTable`. A página `/slides` lista coletâneas num combobox; ao trocar a seleção, o HTMX faz `GET /web/slides/hinos?codigo=` (`hx-trigger="change"`, `hx-include="this"`) e substitui o container `#hinos` pelo fragmento `HinosGrid`.
 
 ## Convenções
 
@@ -100,7 +102,8 @@ Fluxo da interface web: HTTP (internal/web) → Services (mesmos serviços da AP
 - **Documentação da API**: spec em `internal/api/openapi.yaml` (OpenAPI 3.0.3) e página em `internal/api/docs.html`, ambos embutidos com `go:embed`; rotas declaradas em `API.rotas()` (fonte única usada por `Routes()`); teste de paridade garante spec ↔ mux sincronizados.
 - **Resposta de erro**: `{"error": "..."}`; 404 para sentinelas de não encontrado, 400 para parâmetro inválido, 500 genérico com detalhe só no log.
 - **Detecção de refrão**: todas as linhas do bloco começam com espaço/tab → refrão (indentação removida); senão → estrofe.
-- **Interface web**: views `templ` em `internal/web/templates`; o `Layout(title, children)` é o esqueleto HTML base (Tailwind + HTMX via CDN). Página (shell) e fragmento (dados) são separados para permitir atualização parcial via HTMX (`hx-get`/`hx-trigger="load"`/`hx-swap`). Os arquivos gerados (`_templ.go`, `main.css`) são commitados; para regenerá-los use `templ generate ./...` e `./scripts/build-css.sh`.
+- **Interface web**: views `templ` em `internal/web/templates`; o `Layout(title, children)` é o esqueleto HTML base (Tailwind + HTMX via CDN). Página (shell) e fragmento (dados) são separados para permitir atualização parcial via HTMX (`hx-get`/`hx-trigger`/`hx-swap`). Os arquivos gerados (`_templ.go`, `main.css`) são commitados; para regenerá-los use `templ generate ./...` e `./scripts/build-css.sh`.
+- **Cards de hinos** (`slides.templ`): exibidos em grade responsiva de até 8 colunas em telas largas (`grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8`); `auto-rows-fr` + `h-full` no card garantem **altura uniforme** entre linhas. Cada card tem conteúdo **centralizado** (`items-center text-center`), mostra numeração em destaque (`%03d`, fonte maior que o título) e o título na linha abaixo. No **rodapé do card** (linha `mt-auto flex items-center justify-center`, empurrada para a base), há os ícones de ação: `edit.png` (edição, sempre visível, funcionalidade futura) e `ppt.png` (gerar slide, apenas hinos revisados) — ambos em `internal/web/static/`, servidos em `/static/`, com `aria-label`. O `ppt.png` aponta para `/api/coletaneas/{codigo}/hinos/{numero}/slides`. Cor de fundo por estado do hino — sem letra `#FFB7B2`, letra não revisada `#FFF5BA`, revisado `#B5EAD7` — aplicada via `style` inline (cores fora do palette padrão do Tailwind).
 - **Blocos**: separados por linha em branco (`\n\s*\n`).
 - **Rodapé**: `N/total` no placeholder body de índice 10 (`sz="quarter"`) do template.
 - **Exibição por coletânea** (`services.textosSlides`): para coletâneas comuns (≠ Corinhos, código `COR`), o 1º slide mostra `Nome da Coletânea - Número` abaixo do título e os slides de conteúdo usam `NÚMERO{CÓDIGO} - TÍTULO` (ex.: `42CC - Antífona`) no topo direito; para Corinhos, o subtítulo fica vazio e os slides de conteúdo mantêm o título original. Os créditos do hino não são exibidos nos slides.

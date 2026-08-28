@@ -35,10 +35,11 @@ func main() {
 	slog.SetDefault(aplicacao.Logger())
 
 	// API REST (JSON) e interface web (HTML/templ+HTMX) compartilham o mesmo
-	// servidor: a API é delegada para "/", e as rotas web (/stats, /static)
-	// são mais específicas, portanto ganham prioridade no mux raiz.
+	// servidor: a API é delegada para "/", e as rotas web (/stats, /slides,
+	// /static) são mais específicas, portanto ganham prioridade no mux raiz.
 	handler := web.New(
 		api.New(aplicacao.HinoService(), aplicacao.StatsService()).Routes(),
+		aplicacao.HinoService(),
 		aplicacao.StatsService(),
 	).Routes()
 
