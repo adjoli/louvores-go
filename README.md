@@ -5,6 +5,7 @@ Geração automatizada de slides PowerPoint para hinos e louvores cristãos a pa
 ## Funcionalidades
 
 - API REST de leitura sobre o banco de hinos
+- Interface web (templ + HTMX + Tailwind) consumindo a API — ver estatísticas
 - Estatísticas por coletânea
 - Separação inteligente de estrofes e refrões por indentação
 - Geração e download de slides (PPTX) a partir de um template único, preservando todas as partes do template
@@ -45,6 +46,18 @@ A documentação interativa fica em http://localhost:8080/api/docs — os assets
 
 Erros retornam `{"error": "..."}` com status 404 (coletânea/hino inexistente), 400 (número inválido), 409 (hino não revisado) ou 500. O contrato JSON usa snake_case; campos opcionais ausentes no banco são serializados como `null`. Um teste garante a paridade entre as rotas registradas e a spec OpenAPI.
 
+### Interface web
+
+Uma interface web HTML é servida no mesmo binário, em `http://localhost:8080/`, usando `templ` (templates tipados em Go), **HTMX** (atualização parcial assíncrona) e **Tailwind CSS**.
+
+| Rota | Descrição |
+|---|---|
+| `GET /stats` | página de estatísticas (shell + placeholder carregado via HTMX) |
+| `GET /web/stats/data` | fragmento HTML com a tabela (consumido pelo HTMX) |
+| `GET /static/` | arquivos estáticos (CSS gerado pelo Tailwind) |
+
+A página `/stats` renderiza o layout base e um placeholder; o HTMX faz `GET /web/stats/data` (`hx-trigger="load"`) e substitui o placeholder pelo fragmento `StatsTable`. Os handlers web reutilizam os mesmos serviços da API (sem chamada HTTP interna). Detalhes em `AGENTS.md`.
+
 ### Geração de slides
 
 `GET /api/coletaneas/{codigo}/hinos/{numero}/slides` gera o PPTX dos slides do hino e o retorna como download (`{CODIGO}-{NUM:03d}-{TITULO}.pptx`). Apenas hinos revisados geram slides — hinos não revisados retornam **409**.
@@ -82,9 +95,18 @@ Um `.env` opcional é carregado na inicialização.
 go test ./...
 ```
 
+## Desenvolvimento da interface web
+
+Os arquivos `_templ.go` (gerados por `templ`) e o `main.css` (gerado pelo Tailwind) são **commitados** — o binário funciona sem a toolchain de frontend. Para regenerá-los após alterar `.templ`/CSS:
+
+```bash
+templ generate ./...            # gera _templ.go a partir de *.templ
+./scripts/build-css.sh          # gera internal/web/static/main.css (Tailwind)
+```
+
 ## Arquitetura
 
-`internal/app` (composition root) monta as dependências e as injeta nos handlers HTTP (`internal/api`) → `internal/services` → `internal/repository` → SQLite (`modernc.org/sqlite`). Detalhes em `AGENTS.md`.
+`internal/app` (composition root) monta as dependências e as injeta nos handlers HTTP — `internal/api` (REST/JSON) e `internal/web` (interface HTML/templ+HTMX) — → `internal/services` → `internal/repository` → SQLite (`modernc.org/sqlite`). Detalhes em `AGENTS.md`.
 
 ### Geração de slides (PPTX)
 

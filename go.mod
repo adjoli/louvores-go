@@ -3,6 +3,7 @@ module github.com/adjoli/louvores-go
 go 1.25.0
 
 require (
+	github.com/a-h/templ v0.3.1020
 	github.com/baliance/gooxml v0.7.1
 	github.com/joho/godotenv v1.5.1
 	modernc.org/sqlite v1.56.0

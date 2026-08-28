@@ -1,0 +1,38 @@
+// layout.templ — template base (esqueleto HTML5) da interface web.
+//
+// Define a estrutura comum a todas as páginas: cabeçalho, link para o CSS
+// gerado pelo Tailwind (embutido no binário e servido em /static) e o script
+// do HTMX carregado via CDN. O conteúdo específico de cada página é injetado
+// no bloco <main> por meio do parâmetro children.
+package templates
+
+// Layout monta a página HTML completa ao redor de um conteúdo específico.
+// title é usado no <title>; children é o componente a ser renderizado no main.
+templ Layout(title string, children templ.Component) {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			<title>{ title }</title>
+			<link rel="stylesheet" href="/static/main.css">
+			<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+		</head>
+		<body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
+			<header class="border-b border-slate-200 bg-white">
+				<div class="mx-auto flex max-w-5xl items-center gap-4 px-4 py-4">
+					<h1 class="text-xl font-bold text-indigo-700">Louvores</h1>
+					<nav class="flex gap-4 text-sm text-slate-600">
+						<a href="/stats" class="hover:text-indigo-700">Estatísticas</a>
+					</nav>
+				</div>
+			</header>
+			<main class="mx-auto max-w-5xl px-4 py-8">
+				@children
+			</main>
+			<footer class="mx-auto max-w-5xl px-4 py-6 text-center text-xs text-slate-400">
+				Louvores · interface web sobre a API
+			</footer>
+		</body>
+	</html>
+}

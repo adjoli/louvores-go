@@ -1,0 +1,76 @@
+// stats.templ — página e fragmentos de estatísticas.
+//
+// A página é servida em /stats e, em vez de embutir os dados, declara um
+// placeholder que o HTMX preenche automaticamente ao carregar, fazendo
+// GET em /web/stats/data (hx-trigger="load"). Esse endpoint devolve apenas o
+// fragmento StatsTable, substituindo o conteúdo do placeholder (hx-swap).
+//
+// Separar a página (shell) do fragmento (dados) mantém a página leve e
+// permite que apenas a tabela seja re-buscada sem recarregar o layout.
+package templates
+
+import (
+	"fmt"
+
+	"github.com/adjoli/louvores-go/internal/services"
+)
+
+// StatsPage renderiza a página completa de estatísticas dentro do layout
+// base, com um placeholder carregado via HTMX.
+templ StatsPage() {
+	@Layout("Estatísticas · Louvores", statsPlaceholder())
+}
+
+// statsPlaceholder é o contêiner inicial da página. Ao ser carregado, o
+// HTMX busca /web/stats/data e troca o conteúdo interno por StatsTable.
+templ statsPlaceholder() {
+	<div
+		id="stats"
+		hx-get="/web/stats/data"
+		hx-trigger="load"
+		hx-swap="innerHTML"
+	>
+		<p class="animate-pulse text-sm text-slate-400">Carregando estatísticas...</p>
+	</div>
+}
+
+// StatsTable é o fragmento com a tabela de estatísticas agregadas por
+// coletânea, servido por /web/stats/data e consumido pelo HTMX.
+templ StatsTable(stats []services.ColetaneaStats) {
+	<div class="overflow-hidden rounded-lg bg-white shadow ring-1 ring-slate-200">
+		<table class="min-w-full divide-y divide-slate-200 text-sm">
+			<thead class="bg-slate-50 text-left text-xs uppercase text-slate-500">
+				<tr>
+					<th class="px-4 py-3">Coletânea</th>
+					<th class="px-4 py-3 text-center">Total</th>
+					<th class="px-4 py-3 text-center">Com letra</th>
+					<th class="px-4 py-3 text-center">Revisados</th>
+					<th class="px-4 py-3 text-center">Não revisados</th>
+					<th class="px-4 py-3 text-right">Percentual</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-slate-100">
+				for _, s := range stats {
+					<tr class="hover:bg-slate-50">
+						<td class="px-4 py-3">
+							<span class="font-semibold text-slate-800">{ s.Codigo }</span>
+							<span class="block text-xs text-slate-500">{ s.Titulo }</span>
+						</td>
+						<td class="px-4 py-3 text-center tabular-nums">{ s.Total }</td>
+						<td class="px-4 py-3 text-center tabular-nums">{ s.ComLetra }</td>
+						<td class="px-4 py-3 text-center tabular-nums">{ s.Revisados }</td>
+						<td class="px-4 py-3 text-center tabular-nums">{ s.NaoRevisados }</td>
+						<td class="px-4 py-3 text-right tabular-nums">{ fmt.Sprintf("%.1f%%", s.Percentual) }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+// StatsVazio é exibido quando não há coletâneas cadastradas.
+templ StatsVazio() {
+	<div class="rounded-lg bg-white p-8 text-center text-sm text-slate-500 shadow ring-1 ring-slate-200">
+		Nenhuma coletânea cadastrada.
+	</div>
+}

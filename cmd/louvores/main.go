@@ -12,6 +12,7 @@ import (
 
 	"github.com/adjoli/louvores-go/internal/api"
 	"github.com/adjoli/louvores-go/internal/app"
+	"github.com/adjoli/louvores-go/internal/web"
 )
 
 // main é o ponto de entrada do binário: inicia o servidor HTTP da API.
@@ -33,7 +34,13 @@ func main() {
 	// logs/app.log e não apenas no stderr.
 	slog.SetDefault(aplicacao.Logger())
 
-	handler := api.New(aplicacao.HinoService(), aplicacao.StatsService()).Routes()
+	// API REST (JSON) e interface web (HTML/templ+HTMX) compartilham o mesmo
+	// servidor: a API é delegada para "/", e as rotas web (/stats, /static)
+	// são mais específicas, portanto ganham prioridade no mux raiz.
+	handler := web.New(
+		api.New(aplicacao.HinoService(), aplicacao.StatsService()).Routes(),
+		aplicacao.StatsService(),
+	).Routes()
 
 	srv := &http.Server{
 		Addr:    aplicacao.Config().Addr(),
