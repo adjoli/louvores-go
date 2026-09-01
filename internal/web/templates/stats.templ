@@ -16,9 +16,9 @@ import (
 )
 
 // StatsPage renderiza a página completa de estatísticas dentro do layout
-// base, com um placeholder carregado via HTMX.
-templ StatsPage() {
-	@Layout("Estatísticas · Louvores", statsPlaceholder())
+// base, com um placeholder carregado via HTMX. version é exibida no rodapé.
+templ StatsPage(version string) {
+	@Layout("Estatísticas · Louvores", version, statsPlaceholder())
 }
 
 // statsPlaceholder é o contêiner inicial da página. Ao ser carregado, o

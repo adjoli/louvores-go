@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/adjoli/louvores-go/internal/api"
 	"github.com/adjoli/louvores-go/internal/app"
+	"github.com/adjoli/louvores-go/internal/version"
 	"github.com/adjoli/louvores-go/internal/web"
 )
 
@@ -22,6 +25,15 @@ import (
 // o servidor com graceful shutdown em SIGINT/SIGTERM. Toda a montagem de
 // camadas vive em app.New; o main não conhece config, banco nem services.
 func main() {
+	// -version imprime a versão do binário e encerra, sem subir o servidor.
+	// Útil para conferir a versão em produção (ex.: louvores -version).
+	showVersion := flag.Bool("version", false, "imprime a versão e sai")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println(version.String())
+		return
+	}
+
 	aplicacao, err := app.New()
 	if err != nil {
 		slog.Error("inicializar aplicação", "erro", err)
@@ -41,6 +53,7 @@ func main() {
 		api.New(aplicacao.HinoService(), aplicacao.StatsService()).Routes(),
 		aplicacao.HinoService(),
 		aplicacao.StatsService(),
+		version.String(),
 	).Routes()
 
 	srv := &http.Server{

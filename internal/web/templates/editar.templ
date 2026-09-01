@@ -15,8 +15,9 @@ import (
 
 // EditarHinoPage renderiza a página com o formulário de edição do hino,
 // exibindo a coletânea e a numeração como informação (não editáveis).
-templ EditarHinoPage(hino models.Hino, codigo string) {
-	@Layout("Editar Hino · Louvores", editarForm(hino, codigo))
+// version é exibida no rodapé.
+templ EditarHinoPage(hino models.Hino, codigo string, version string) {
+	@Layout("Editar Hino · Louvores", version, editarForm(hino, codigo))
 }
 
 // editarForm monta o formulário. A submissão via POST vai para

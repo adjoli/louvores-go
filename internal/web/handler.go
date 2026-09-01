@@ -35,16 +35,19 @@ type Web struct {
 	api      http.Handler
 	hinoSvc  *services.HinoService
 	statsSvc *services.StatsService
+	version  string
 }
 
-// New cria a interface web com o handler da API (montado em main) e os
-// serviços de hinos e estatísticas. O handler da API é delegado para "/" —
-// ou seja, toda requisição sem rota web específica cai na API REST.
-func New(apiHandler http.Handler, hinoSvc *services.HinoService, statsSvc *services.StatsService) *Web {
+// New cria a interface web com o handler da API (montado em main), os
+// serviços de hinos e estatísticas, e a versão da aplicação (exibida no
+// rodapé das páginas). O handler da API é delegado para "/" — ou seja, toda
+// requisição sem rota web específica cai na API REST.
+func New(apiHandler http.Handler, hinoSvc *services.HinoService, statsSvc *services.StatsService, version string) *Web {
 	return &Web{
 		api:      apiHandler,
 		hinoSvc:  hinoSvc,
 		statsSvc: statsSvc,
+		version:  version,
 	}
 }
 
@@ -75,7 +78,7 @@ func (w *Web) Routes() http.Handler {
 // handleStatsPage serve a página completa de estatísticas. A página contém
 // apenas o placeholder; os dados são carregados assíncronamente pelo HTMX.
 func (w *Web) handleStatsPage(wr http.ResponseWriter, r *http.Request) {
-	err := templates.StatsPage().Render(r.Context(), wr)
+	err := templates.StatsPage(w.version).Render(r.Context(), wr)
 	if err != nil {
 		slog.Error("renderizar página de estatísticas", "erro", err)
 	}
@@ -113,7 +116,7 @@ func (w *Web) handleSlidesPage(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := templates.SlidesPage(coletaneas).Render(r.Context(), wr); err != nil {
+	if err := templates.SlidesPage(coletaneas, w.version).Render(r.Context(), wr); err != nil {
 		slog.Error("renderizar página de geração de slides", "erro", err)
 	}
 }
@@ -165,7 +168,7 @@ func (w *Web) handleEditarHinoPage(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := templates.EditarHinoPage(*hino, codigo).Render(r.Context(), wr); err != nil {
+	if err := templates.EditarHinoPage(*hino, codigo, w.version).Render(r.Context(), wr); err != nil {
 		slog.Error("renderizar formulário de edição", "coletanea", codigo, "numero", numero, "erro", err)
 	}
 }

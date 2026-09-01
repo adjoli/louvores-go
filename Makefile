@@ -3,11 +3,22 @@ BINARY=louvores
 
 CMD=./cmd/louvores
 
+# Versão: VERSION pode ser sobrescrita (ex.: make build VERSION=1.2.3).
+# COMMIT/DATE são derivados do git; injetados no binário via -ldflags -X.
+VERSION ?= dev
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "")
+DATE   ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
+
+LDFLAGS = -X github.com/adjoli/louvores-go/internal/version.Version=$(VERSION) \
+          -X github.com/adjoli/louvores-go/internal/version.Commit=$(COMMIT) \
+          -X github.com/adjoli/louvores-go/internal/version.Date=$(DATE)
+
 .PHONY: help
 help:
 	@echo "Comandos disponíveis:"
 	@echo "  make run        - Executa o servidor HTTP"
-	@echo "  make build      - Compila o binário"
+	@echo "  make build      - Compila o binário (com versão via -ldflags)"
+	@echo "  make version    - Imprime a versão do binário"
 	@echo "  make clean      - Remove o binário"
 	@echo "  make fmt        - Formata o código"
 	@echo "  make vet        - Executa go vet"
@@ -23,7 +34,12 @@ run:
 
 .PHONY: build
 build:
-	go build -o $(BINARY) $(CMD)
+	go build -ldflags "$(LDFLAGS)" -o $(BINARY) $(CMD)
+
+.PHONY: version
+version:
+	go build -ldflags "$(LDFLAGS)" -o $(BINARY) $(CMD)
+	./$(BINARY) -version
 
 .PHONY: clean
 clean:

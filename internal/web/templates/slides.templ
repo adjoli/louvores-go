@@ -22,9 +22,10 @@ import (
 )
 
 // SlidesPage renderiza a página de geração de slides com o seletor de
-// coletâneas e o container placeholder para a grade de hinos.
-templ SlidesPage(coletaneas []models.Coletanea) {
-	@Layout("Geração de Slides · Louvores", slidesContent(coletaneas))
+// coletâneas e o container placeholder para a grade de hinos. version é
+// exibida no rodapé.
+templ SlidesPage(coletaneas []models.Coletanea, version string) {
+	@Layout("Geração de Slides · Louvores", version, slidesContent(coletaneas))
 }
 
 // slidesContent monta o seletor de coletânea e o container da grade de hinos.

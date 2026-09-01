@@ -21,7 +21,11 @@ go test ./...        # todos os testes (SQLite em memória + template real)
 go vet ./...
 go run ./cmd/louvores    # sobe o servidor HTTP (padrão :8080)
 go build ./cmd/louvores
+make build           # compila com versão (VERSION, git commit e data via -ldflags)
+./louvores -version  # imprime a versão do binário
 ```
+
+A versão é definida por `make build VERSION=x.y.z` (default `dev`); o commit e a data vêm do git. Sem build flags, `version.String()` retorna `dev`.
 
 **Geração da interface web** (é preciso rodar antes de alterar `.templ`/CSS e commitá-los):
 
@@ -84,6 +88,7 @@ internal/
     errors.go               ErrHinoNotFound / ErrColetaneaNotFound (wrap sql.ErrNoRows)
   services/                 hino (leitura + atualização de hinos), stats — recebem repos via DI
   api/                      Handlers HTTP finos → JSON; erros → 400/404/500
+  version/                  Versão do binário (injetada via -ldflags, ver Makefile)
   web/
     handler.go              Interface web: mux raiz (API em "/" + páginas/fragmentos/static)
     templates/*.templ       Views templ (layout base + stats + slides + editar) → _templ.go gerado
@@ -107,7 +112,8 @@ Fluxo da interface web: HTTP (internal/web) → Services (mesmos serviços da AP
 - **Resposta de erro**: `{"error": "..."}`; 404 para sentinelas de não encontrado, 400 para parâmetro inválido, 500 genérico com detalhe só no log.
 - **Estatísticas** (`services.stats_service.go`): `percentual` = hinos com letra ÷ total × 100; `percentual_revisados` = hinos revisados ÷ hinos com letra × 100. Ambos `0.0` quando o denominador é zero.
 - **Detecção de refrão**: todas as linhas do bloco começam com espaço/tab → refrão (indentação removida); senão → estrofe.
-- **Interface web**: views `templ` em `internal/web/templates`; o `Layout(title, children)` é o esqueleto HTML base (Tailwind + HTMX via CDN). Página (shell) e fragmento (dados) são separados para permitir atualização parcial via HTMX (`hx-get`/`hx-trigger`/`hx-swap`). Os arquivos gerados (`_templ.go`, `main.css`) são commitados; para regenerá-los use `templ generate ./...` e `./scripts/build-css.sh`.
+- **Interface web**: views `templ` em `internal/web/templates`; o `Layout(title, version, children)` é o esqueleto HTML base (Tailwind + HTMX via CDN); a `version` é exibida no rodapé (`v{version}`). Página (shell) e fragmento (dados) são separados para permitir atualização parcial via HTMX (`hx-get`/`hx-trigger`/`hx-swap`). Os arquivos gerados (`_templ.go`, `main.css`) são commitados; para regenerá-los use `templ generate ./...` e `./scripts/build-css.sh`.
+- **Versão** (`internal/version`): variáveis `Version`/`Commit`/`Date` injetadas via `-ldflags -X` no `make build`; `String()` formata (com ou sem commit/data). A versão flui de `main.go` → `web.New` → `Layout` (rodapé).
 - **Cards de hinos** (`slides.templ`): exibidos em grade responsiva de até 8 colunas em telas largas (`grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8`); `auto-rows-fr` + `h-full` no card garantem **altura uniforme** entre linhas. Cada card tem conteúdo **centralizado** (`items-center text-center`), mostra numeração em destaque (`%03d`, fonte maior que o título) e o título na linha abaixo. No **rodapé do card** (linha `mt-auto flex items-center justify-center`, empurrada para a base), há os ícones de ação: `edit.png` (edição, sempre visível, aponta para `/web/hinos/{codigo}/{numero}/editar`) e `ppt.png` (gerar slide, apenas hinos revisados) — ambos em `internal/web/static/`, servidos em `/static/`, com `aria-label`. O `ppt.png` aponta para `/api/coletaneas/{codigo}/hinos/{numero}/slides`. Cor de fundo por estado do hino — sem letra `#FFB7B2`, letra não revisada `#FFF5BA`, revisado `#B5EAD7` — aplicada via `style` inline (cores fora do palette padrão do Tailwind).
 - **Edição de hinos** (`editar.templ` + `HinoService.AtualizarHino`): formulário com título, letra (textarea), créditos e checkbox "revisado". Número e coletânea vêm da rota (não editáveis). A letra é convertida para Title Case antes de salvar (`titularLetra`, preservando indentação de refrões e texto já em caixa mista). Revisão é **irreversível**: se o hino já é revisado, o checkbox fica `disabled` e o serviço mantém `Revisado=true` mesmo se o formulário o enviar desmarcado. Uso de `templ.Component` + render via `Render(ctx, w)`; o POST segue PRG (303 → `/slides`).
 - **Quebras de linha**: o textarea do formulário pode enviar CRLF (`\r\n`). `HinoService.titularLetra` e `processors.ProcessarHino` normalizam para LF (`normalizeNewlines`), evitando linha em branco extra nos slides. Ordem: `\r\n` → `\n` primeiro, depois `\r` isolado.

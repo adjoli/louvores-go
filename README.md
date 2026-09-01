@@ -20,14 +20,17 @@ Geração automatizada de slides PowerPoint para hinos e louvores cristãos a pa
 
 ```bash
 go mod tidy
-go build ./cmd/louvores
+make build   # compila com versão (VERSION, commit git e data via -ldflags)
 ```
 
 ## Uso
 
 ```bash
-louvores    # sobe o servidor HTTP (padrão :8080)
+./louvores          # sobe o servidor HTTP (padrão :8080)
+./louvores -version # imprime a versão do binário
 ```
+
+A versão pode ser definida em `make build VERSION=1.2.3` (default `dev`); o commit e a data vêm do git. Ela é exibida no rodapé das páginas web.
 
 ### Endpoints
 

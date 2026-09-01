@@ -14,6 +14,9 @@ import (
 	"github.com/adjoli/louvores-go/internal/services"
 )
 
+// testVersion é a versão injetada nos handlers web durante os testes.
+const testVersion = "test-version"
+
 // setupWeb constrói a interface web com um banco em memória semeado com uma
 // coletânea e três hinos cobrindo os três estados de letra/revisão:
 //   - número 1: sem letra (Letra nil)
@@ -66,7 +69,7 @@ func setupWeb(t *testing.T) (*Web, *sql.DB) {
 
 	// O handler da API é opcional para os testes web; passamos nil, que o
 	// Routes() trata com delegação desativada.
-	return New(nil, hinoSvc, statsSvc), conn
+	return New(nil, hinoSvc, statsSvc, testVersion), conn
 }
 
 // TestStatsPage serve a página /stats com status 200 e conteúdo HTML.
@@ -86,6 +89,9 @@ func TestStatsPage(t *testing.T) {
 	}
 	if !strings.Contains(body, `hx-get="/web/stats/data"`) {
 		t.Error("página não declara o placeholder HTMX para /web/stats/data")
+	}
+	if !strings.Contains(body, "v"+testVersion) {
+		t.Error("rodapé não exibe a versão da aplicação")
 	}
 }
 
@@ -128,7 +134,7 @@ func TestStatsDataVazio(t *testing.T) {
 	coletaneaRepo := repository.NewSQLiteColetaneaRepository(conn)
 	hinoSvc := services.NewHinoService(hinoRepo, coletaneaRepo, "")
 	statsSvc := services.NewStatsService(hinoRepo)
-	w := New(nil, hinoSvc, statsSvc)
+	w := New(nil, hinoSvc, statsSvc, testVersion)
 
 	req := httptest.NewRequest("GET", "/web/stats/data", nil)
 	rec := httptest.NewRecorder()
