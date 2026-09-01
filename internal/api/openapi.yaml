@@ -323,7 +323,7 @@ components:
 
     StatsColetanea:
       type: object
-      required: [codigo, titulo, total, com_letra, revisados, nao_revisados, percentual]
+      required: [codigo, titulo, total, com_letra, revisados, nao_revisados, percentual, percentual_revisados]
       properties:
         codigo:
           type: string
@@ -348,3 +348,8 @@ components:
           format: double
           description: Percentual de hinos com letra (com_letra ÷ total × 100).
           example: 50.0
+        percentual_revisados:
+          type: number
+          format: double
+          description: Percentual de hinos revisados em relação aos hinos com letra (revisados ÷ com_letra × 100).
+          example: 25.0

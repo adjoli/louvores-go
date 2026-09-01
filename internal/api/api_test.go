@@ -196,6 +196,9 @@ func TestStatsEndpoint(t *testing.T) {
 	if s.Percentual != 50 {
 		t.Errorf("percentual = %v, want 50", s.Percentual)
 	}
+	if s.PercentualRevisados != 0 {
+		t.Errorf("percentual_revisados = %v, want 0", s.PercentualRevisados)
+	}
 }
 
 func TestGerarSlidesLoteEndpoint(t *testing.T) {

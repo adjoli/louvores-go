@@ -107,6 +107,9 @@ func TestStatsData(t *testing.T) {
 	if !strings.Contains(body, "<table") {
 		t.Error("fragmento não contém a tabela de estatísticas")
 	}
+	if !strings.Contains(body, "% com letra") || !strings.Contains(body, "% revisados") {
+		t.Error("tabela não exibe os cabeçalhos de percentual de letra e de revisados")
+	}
 }
 
 // TestStatsDataVazio renderiza a mensagem de vazio quando não há coletâneas.

@@ -6,7 +6,7 @@ Geração automatizada de slides PowerPoint para hinos e louvores cristãos a pa
 
 - API REST de leitura sobre o banco de hinos
 - Interface web (templ + HTMX + Tailwind) consumindo a API — ver estatísticas e slides
-- Estatísticas por coletânea
+- Estatísticas por coletânea (percentual de hinos com letra e percentual de revisados sobre os que têm letra)
 - Separação inteligente de estrofes e refrões por indentação
 - Edição de hinos pela interface web (título, letra com Title Case, créditos e revisão irreversível)
 - Geração e download de slides (PPTX) a partir de um template único, preservando todas as partes do template
