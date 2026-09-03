@@ -2,6 +2,7 @@
 *.exe
 *.test
 *.out
+louvores
 
 docs/
 
@@ -18,3 +19,4 @@ logs/
 
 # Ambiente
 .env
+.vscode
