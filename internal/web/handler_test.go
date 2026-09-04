@@ -72,7 +72,8 @@ func setupWeb(t *testing.T) (*Web, *sql.DB) {
 	return New(nil, hinoSvc, statsSvc, testVersion), conn
 }
 
-// TestStatsPage serve a página /stats com status 200 e conteúdo HTML.
+// TestStatsPage serve a página /stats com status 200 e conteúdo HTML,
+// incluindo a tabela de estatísticas embutida (sem HTMX).
 func TestStatsPage(t *testing.T) {
 	w, _ := setupWeb(t)
 
@@ -87,39 +88,25 @@ func TestStatsPage(t *testing.T) {
 	if !strings.Contains(body, "Louvores") {
 		t.Error("página não contém o título base 'Louvores'")
 	}
-	if !strings.Contains(body, `hx-get="/web/stats/data"`) {
-		t.Error("página não declara o placeholder HTMX para /web/stats/data")
-	}
-	if !strings.Contains(body, "v"+testVersion) {
-		t.Error("rodapé não exibe a versão da aplicação")
-	}
-}
-
-// TestStatsData serve o fragmento /web/stats/data com a tabela de estatísticas.
-func TestStatsData(t *testing.T) {
-	w, _ := setupWeb(t)
-
-	req := httptest.NewRequest("GET", "/web/stats/data", nil)
-	rec := httptest.NewRecorder()
-	w.Routes().ServeHTTP(rec, req)
-
-	if rec.Code != 200 {
-		t.Fatalf("status = %d, esperado 200", rec.Code)
-	}
-	body := rec.Body.String()
-	if !strings.Contains(body, "CC") || !strings.Contains(body, "Cantor Cristão") {
-		t.Errorf("fragmento não contém os dados da coletânea semeada: %s", body)
-	}
 	if !strings.Contains(body, "<table") {
-		t.Error("fragmento não contém a tabela de estatísticas")
+		t.Error("página não contém a tabela de estatísticas")
+	}
+	if !strings.Contains(body, "CC") || !strings.Contains(body, "Cantor Cristão") {
+		t.Error("página não contém os dados da coletânea semeada")
 	}
 	if !strings.Contains(body, "% com letra") || !strings.Contains(body, "% revisados") {
 		t.Error("tabela não exibe os cabeçalhos de percentual de letra e de revisados")
 	}
+	if !strings.Contains(body, "v"+testVersion) {
+		t.Error("rodapé não exibe a versão da aplicação")
+	}
+	if strings.Contains(body, "htmx") {
+		t.Error("página não deveria depender de HTMX")
+	}
 }
 
-// TestStatsDataVazio renderiza a mensagem de vazio quando não há coletâneas.
-func TestStatsDataVazio(t *testing.T) {
+// TestStatsPageVazio renderiza a mensagem de vazio quando não há coletâneas.
+func TestStatsPageVazio(t *testing.T) {
 	// Banco em memória vazio, apenas com schema migrado.
 	conn, err := database.Open(":memory:")
 	if err != nil {
@@ -136,7 +123,7 @@ func TestStatsDataVazio(t *testing.T) {
 	statsSvc := services.NewStatsService(hinoRepo)
 	w := New(nil, hinoSvc, statsSvc, testVersion)
 
-	req := httptest.NewRequest("GET", "/web/stats/data", nil)
+	req := httptest.NewRequest("GET", "/stats", nil)
 	rec := httptest.NewRecorder()
 	w.Routes().ServeHTTP(rec, req)
 
@@ -148,8 +135,8 @@ func TestStatsDataVazio(t *testing.T) {
 	}
 }
 
-// TestSlidesPage serve a página /slides com status 200, o seletor HTMX e as
-// opções de coletânea.
+// TestSlidesPage serve a página /slides com status 200, o seletor de
+// coletânea e as opções de coletânea. Sem ?codigo, a grade ainda não aparece.
 func TestSlidesPage(t *testing.T) {
 	w, _ := setupWeb(t)
 
@@ -164,21 +151,21 @@ func TestSlidesPage(t *testing.T) {
 	if !strings.Contains(body, "Geração de Slides") {
 		t.Error("página não contém o título 'Geração de Slides'")
 	}
-	if !strings.Contains(body, `hx-get="/web/slides/hinos"`) {
-		t.Error("seletor não dispara HTMX para /web/slides/hinos")
-	}
 	if !strings.Contains(body, "Cantor Cristão") {
 		t.Error("seletor não contém a opção da coletânea semeada")
 	}
+	if strings.Contains(body, "htmx") {
+		t.Error("página não deveria depender de HTMX")
+	}
 }
 
-// TestSlidesHinos serve o fragmento /web/slides/hinos com a grade de cards,
-// verificando numeração zero-padded, cores por estado e o link de geração
-// apenas para o hino revisado.
-func TestSlidesHinos(t *testing.T) {
+// TestSlidesGrade serve a página /slides?codigo=CC com a grade de cards já
+// preenchida, verificando numeração zero-padded, cores por estado e o link
+// de geração apenas para o hino revisado.
+func TestSlidesGrade(t *testing.T) {
 	w, _ := setupWeb(t)
 
-	req := httptest.NewRequest("GET", "/web/slides/hinos?codigo=CC", nil)
+	req := httptest.NewRequest("GET", "/slides?codigo=CC", nil)
 	rec := httptest.NewRecorder()
 	w.Routes().ServeHTTP(rec, req)
 
@@ -221,7 +208,7 @@ func TestSlidesHinos(t *testing.T) {
 		t.Error("hino não revisado/sem letra não deve ter link de geração de slide")
 	}
 
-	// Ícone de edição presente em todos os cards (funcionalidade futura).
+	// Ícone de edição presente em todos os cards.
 	if !strings.Contains(body, `aria-label="Editar hino"`) || !strings.Contains(body, `src="/static/edit.png"`) {
 		t.Error("card não exibe o ícone de edição de hino (edit.png)")
 	}
@@ -230,24 +217,11 @@ func TestSlidesHinos(t *testing.T) {
 	}
 }
 
-// TestSlidesHinosSemCodigo retorna 400 quando o parâmetro codigo falta.
-func TestSlidesHinosSemCodigo(t *testing.T) {
+// TestSlidesColetaneaInexistente retorna 404 para código desconhecido.
+func TestSlidesColetaneaInexistente(t *testing.T) {
 	w, _ := setupWeb(t)
 
-	req := httptest.NewRequest("GET", "/web/slides/hinos", nil)
-	rec := httptest.NewRecorder()
-	w.Routes().ServeHTTP(rec, req)
-
-	if rec.Code != 400 {
-		t.Fatalf("status = %d, esperado 400", rec.Code)
-	}
-}
-
-// TestSlidesHinosColetaneaInexistente retorna 404 para código desconhecido.
-func TestSlidesHinosColetaneaInexistente(t *testing.T) {
-	w, _ := setupWeb(t)
-
-	req := httptest.NewRequest("GET", "/web/slides/hinos?codigo=ZZ", nil)
+	req := httptest.NewRequest("GET", "/slides?codigo=ZZ", nil)
 	rec := httptest.NewRecorder()
 	w.Routes().ServeHTTP(rec, req)
 

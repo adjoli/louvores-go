@@ -1,12 +1,8 @@
-// stats.templ — página e fragmentos de estatísticas.
+// stats.templ — página de estatísticas.
 //
-// A página é servida em /stats e, em vez de embutir os dados, declara um
-// placeholder que o HTMX preenche automaticamente ao carregar, fazendo
-// GET em /web/stats/data (hx-trigger="load"). Esse endpoint devolve apenas o
-// fragmento StatsTable, substituindo o conteúdo do placeholder (hx-swap).
-//
-// Separar a página (shell) do fragmento (dados) mantém a página leve e
-// permite que apenas a tabela seja re-buscada sem recarregar o layout.
+// A página é servida em /stats e embute a tabela de estatísticas
+// diretamente no HTML, no momento do render (sem HTMX). Quando não há
+// coletâneas, exibe a mensagem de vazio.
 package templates
 
 import (
@@ -16,26 +12,24 @@ import (
 )
 
 // StatsPage renderiza a página completa de estatísticas dentro do layout
-// base, com um placeholder carregado via HTMX. version é exibida no rodapé.
-templ StatsPage(version string) {
-	@Layout("Estatísticas · Louvores", version, statsPlaceholder())
+// base, já com a tabela embutida. version é exibida no rodapé. stats é a
+// lista agregada por coletânea (pode ser vazia).
+templ StatsPage(stats []services.ColetaneaStats, version string) {
+	@Layout("Estatísticas · Louvores", version, statsContent(stats))
 }
 
-// statsPlaceholder é o contêiner inicial da página. Ao ser carregado, o
-// HTMX busca /web/stats/data e troca o conteúdo interno por StatsTable.
-templ statsPlaceholder() {
-	<div
-		id="stats"
-		hx-get="/web/stats/data"
-		hx-trigger="load"
-		hx-swap="innerHTML"
-	>
-		<p class="animate-pulse text-sm text-slate-400">Carregando estatísticas...</p>
-	</div>
+// statsContent monta o conteúdo principal da página: uma tabela quando há
+// dados, ou a mensagem de vazio caso contrário.
+templ statsContent(stats []services.ColetaneaStats) {
+	if len(stats) == 0 {
+		@StatsVazio()
+	} else {
+		@StatsTable(stats)
+	}
 }
 
-// StatsTable é o fragmento com a tabela de estatísticas agregadas por
-// coletânea, servido por /web/stats/data e consumido pelo HTMX.
+// StatsTable é a tabela de estatísticas agregadas por coletânea, exibida
+// na página /stats. Renders dentro de statsContent.
 templ StatsTable(stats []services.ColetaneaStats) {
 	<div class="overflow-hidden rounded-lg bg-white shadow ring-1 ring-slate-200">
 		<table class="min-w-full divide-y divide-slate-200 text-sm">

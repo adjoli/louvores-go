@@ -1,9 +1,9 @@
-// slides.templ — página e fragmentos de geração de slides.
+// slides.templ — página de geração de slides.
 //
-// A página é servida em /slides e apresenta um seletor de coletânea
-// (combobox). Ao trocar a seleção, o HTMX dispara GET em /web/slides/hinos
-// (hx-trigger="change", hx-include="this" envia ?codigo=<código>) e substitui
-// o conteúdo do container #hinos (hx-target/hx-swap) pela grade de cards.
+// A página é servida em /slides e, diferentemente de antes (HTMX), agora
+// renderiza a grade de hinos diretamente no HTML. Ao enviar o formulário com
+// a coletânea selecionada (?codigo=), a própria página é re-carregada com a
+// grade já preenchida para aquela coletânea.
 //
 // Cada hino é renderizado como um card de cantos arredondados cuja cor de
 // fundo varia conforme o estado do hino:
@@ -22,38 +22,52 @@ import (
 )
 
 // SlidesPage renderiza a página de geração de slides com o seletor de
-// coletâneas e o container placeholder para a grade de hinos. version é
-// exibida no rodapé.
-templ SlidesPage(coletaneas []models.Coletanea, version string) {
-	@Layout("Geração de Slides · Louvores", version, slidesContent(coletaneas))
+// coletânea e a grade de hinos (preenchida se houver codigo). selecionada é
+// o código da coletânea corrente ("" antes de selecionar). version é exibida
+// no rodapé.
+templ SlidesPage(coletaneas []models.Coletanea, hinos []models.Hino, selecionada string, version string) {
+	@Layout("Geração de Slides · Louvores", version, slidesContent(coletaneas, hinos, selecionada))
 }
 
-// slidesContent monta o seletor de coletânea e o container da grade de hinos.
-templ slidesContent(coletaneas []models.Coletanea) {
+// slidesContent monta o formulário de seleção da coletânea e a grade de
+// hinos. O formulário faz GET em /slides enviando ?codigo=, recarregando a
+// página com a grade já renderizada.
+templ slidesContent(coletaneas []models.Coletanea, hinos []models.Hino, selecionada string) {
 	<h1 class="mb-6 text-2xl font-bold text-slate-800">Geração de Slides</h1>
 
-	<label for="coletanea" class="mb-2 block text-sm font-medium text-slate-700">
-		Coletânea
-	</label>
-	<select
-		id="coletanea"
-		name="codigo"
-		class="mb-6 w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
-		hx-get="/web/slides/hinos"
-		hx-trigger="change"
-		hx-include="this"
-		hx-target="#hinos"
-		hx-swap="innerHTML"
-	>
-		<option value="" disabled selected>Selecione uma coletânea</option>
-		for _, c := range coletaneas {
-			<option value={ c.Codigo }>{ c.Titulo }</option>
-		}
-	</select>
+	<form method="get" action="/slides" class="mb-6">
+		<label for="coletanea" class="mb-2 block text-sm font-medium text-slate-700">
+			Coletânea
+		</label>
+		<div class="flex max-w-md items-center gap-3">
+			<select
+				id="coletanea"
+				name="codigo"
+				class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
+			>
+				<option value="" if selecionada == "" { selected } else { disabled }>
+					Selecione uma coletânea
+				</option>
+				for _, c := range coletaneas {
+					<option value={ c.Codigo } if c.Codigo == selecionada { selected }>{ c.Titulo }</option>
+				}
+			</select>
+			<button
+				type="submit"
+				class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+			>
+				Listar
+			</button>
+		</div>
+	</form>
 
-	<div id="hinos" class="min-h-16 text-sm text-slate-400">
-		Selecione uma coletânea para listar os hinos.
-	</div>
+	if selecionada != "" {
+		@HinosGrid(hinos, selecionada)
+	} else {
+		<div class="min-h-16 text-sm text-slate-400">
+			Selecione uma coletânea para listar os hinos.
+		</div>
+	}
 }
 
 // HinosGrid é o fragmento com a grade de cards dos hinos da coletânea,
