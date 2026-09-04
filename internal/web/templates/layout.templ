@@ -1,9 +1,8 @@
 // layout.templ — template base (esqueleto HTML5) da interface web.
 //
 // Define a estrutura comum a todas as páginas: cabeçalho, link para o CSS
-// gerado pelo Tailwind (embutido no binário e servido em /static) e o script
-// do HTMX carregado via CDN. O conteúdo específico de cada página é injetado
-// no bloco <main> por meio do parâmetro children.
+// estático (servido em /static/main.css) e o conteúdo específico de cada
+// página injetado no bloco <main> por meio do parâmetro children.
 package templates
 
 // Layout monta a página HTML completa ao redor de um conteúdo específico.
@@ -16,7 +15,7 @@ templ Layout(title string, version string, children templ.Component) {
 			<meta charset="UTF-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
 			<title>{ title }</title>
-			<link rel="stylesheet" href="/static/main.css?v=3">
+			<link rel="stylesheet" href="/static/main.css?v=4">
 		</head>
 		<body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
 			<header class="border-b border-slate-200 bg-white">

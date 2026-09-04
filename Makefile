@@ -5,7 +5,7 @@ CMD=./cmd/louvores
 
 # Versão: VERSION pode ser sobrescrita (ex.: make build VERSION=1.2.3).
 # COMMIT/DATE são derivados do git; injetados no binário via -ldflags -X.
-VERSION ?= 0.1.0
+VERSION ?= 0.2.0
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "")
 DATE   ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
 

@@ -1,14 +1,8 @@
 # Static assets — interface web Louvores-Go
 
-Coloque aqui arquivos estáticos (main.css gerado pelo Tailwind, favicons, etc).
+Coloque aqui arquivos estáticos servidos em `/static/` (logo, ícones PNG,
+etc).
 
-- O arquivo principal para Tailwind deve ser gerado como `main.css`.
-- Configure o Tailwind para varrer também arquivos `.templ` no build.
-
-Exemplo de build Tailwind (diretório raiz):
-
-```bash
-tailwindcss -i ./internal/web/static/input.css \
-            -o ./internal/web/static/main.css \
-            --content ./internal/web/templates/**/*.templ
-```
+- `main.css` é a folha de estilos da interface, mantida **manualmente**
+  (baseada no que o Tailwind compilava). Edite-o diretamente — não há build
+  de CSS nem dependência de Node.

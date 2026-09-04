@@ -70,8 +70,8 @@ templ slidesContent(coletaneas []models.Coletanea, hinos []models.Hino, selecion
 	}
 }
 
-// HinosGrid é o fragmento com a grade de cards dos hinos da coletânea,
-// servido por /web/slides/hinos e consumido pelo HTMX.
+// HinosGrid é a grade de cards dos hinos da coletânea selecionada, renderizada
+// dentro de slidesContent na página /slides.
 templ HinosGrid(hinos []models.Hino, codigo string) {
 	if len(hinos) == 0 {
 		<div class="rounded-lg bg-white p-8 text-center text-sm text-slate-500 shadow ring-1 ring-slate-200">

@@ -8,7 +8,7 @@
 //   - "/stats"   → página completa de estatísticas (tabela embutida)
 //   - "/slides"  → página de geração de slides (?codigo= preenche a grade)
 //   - "/web/..." → fluxo de edição/salvamento do hino (GET form + POST PRG)
-//   - "/static/" → arquivos estáticos (CSS gerado pelo Tailwind)
+//   - "/static/" → arquivos estáticos (main.css mantido manualmente)
 //
 // Os handlers dependem apenas dos serviços (DI), nunca de HTTP interno para
 // buscar dados — evitam a sobrecarga de chamar a própria API.
