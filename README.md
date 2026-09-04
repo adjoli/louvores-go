@@ -5,7 +5,7 @@ Geração automatizada de slides PowerPoint para hinos e louvores cristãos a pa
 ## Funcionalidades
 
 - API REST de leitura sobre o banco de hinos
-- Interface web (templ + Tailwind) consumindo a API — ver estatísticas e slides
+- Interface web (templ) consumindo a API — ver estatísticas e slides
 - Estatísticas por coletânea (percentual de hinos com letra e percentual de revisados sobre os que têm letra)
 - Separação inteligente de estrofes e refrões por indentação
 - Edição de hinos pela interface web (título, letra com Title Case, créditos e revisão irreversível)
@@ -52,7 +52,7 @@ Erros retornam `{"error": "..."}` com status 404 (coletânea/hino inexistente), 
 
 ### Interface web
 
-Uma interface web HTML é servida no mesmo binário, em `http://localhost:8080/`, usando `templ` (templates tipados em Go) e **Tailwind CSS**. As páginas são servidas como HTML completo, já com os dados embutidos no render (sem HTMX).
+Uma interface web HTML é servida no mesmo binário, em `http://localhost:8080/`, usando `templ` (templates tipados em Go). As páginas são servidas como HTML completo, já com os dados embutidos no render (sem HTMX). Os estilos ficam em `internal/web/static/main.css`, mantido manualmente (sem build).
 
 | Rota | Descrição |
 |---|---|
@@ -60,7 +60,7 @@ Uma interface web HTML é servida no mesmo binário, em `http://localhost:8080/`
 | `GET /slides` | página de geração de slides (seletor de coletânea; `?codigo=` preenche a grade de hinos) |
 | `GET /web/hinos/{codigo}/{numero}/editar` | formulário de edição do hino (título, letra, créditos, revisão) |
 | `POST /web/hinos/{codigo}/{numero}` | persiste as alterações do hino e redireciona (303) para `/slides` |
-| `GET /static/` | arquivos estáticos (CSS gerado pelo Tailwind) |
+| `GET /static/` | arquivos estáticos (main.css, logo/ícones) |
 
 A página `/stats` renderiza a tabela de estatísticas diretamente no HTML. A página `/slides` exibe um combobox de coletâneas; ao selecionar e enviar o formulário (`GET /slides?codigo=`), a página recarrega com a grade de cards dos hinos (responsiva, até 8 colunas, altura uniforme, conteúdo centralizado). Cada card mostra a numeração em destaque (três dígitos, fonte maior que o título) com o título abaixo, e cor de fundo por estado (sem letra `#FFB7B2`, não revisado `#FFF5BA`, revisado `#B5EAD7`). No rodapé do card há os ícones de ação: edição (`edit.png`, abre o formulário de edição) e geração de slide (`ppt.png`, apenas hinos revisados, apontando para o endpoint de download). Na edição, a letra é convertida para **Title Case** antes de salvar, e a revisão é **irreversível** (checkbox desabilitado para hinos já revisados). Os handlers web reutilizam os mesmos serviços da API (sem chamada HTTP interna). Detalhes em `AGENTS.md`.
 
@@ -103,11 +103,10 @@ go test ./...
 
 ## Desenvolvimento da interface web
 
-Os arquivos `_templ.go` (gerados por `templ`) e o `main.css` (gerado pelo Tailwind) são **commitados** — o binário funciona sem a toolchain de frontend. Para regenerá-los após alterar `.templ`/CSS:
+Os arquivos `_templ.go` (gerados por `templ`) são **commitados** — o binário funciona sem a toolchain de frontend. O `main.css` é mantido manualmente. Para regenerar os templates após alterar `.templ`:
 
 ```bash
 templ generate ./...            # gera _templ.go a partir de *.templ
-./scripts/build-css.sh          # gera internal/web/static/main.css (Tailwind)
 ```
 
 ## Arquitetura

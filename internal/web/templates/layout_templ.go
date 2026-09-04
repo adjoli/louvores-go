@@ -7,11 +7,9 @@
 
 // Define a estrutura comum a todas as páginas: cabeçalho, link para o CSS
 
-// gerado pelo Tailwind (embutido no binário e servido em /static) e o script
+// estático (servido em /static/main.css) e o conteúdo específico de cada
 
-// do HTMX carregado via CDN. O conteúdo específico de cada página é injetado
-
-// no bloco <main> por meio do parâmetro children.
+// página injetado no bloco <main> por meio do parâmetro children.
 
 package templates
 
@@ -51,13 +49,13 @@ func Layout(title string, version string, children templ.Component) templ.Compon
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout.templ`, Line: 18, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout.templ`, Line: 17, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/static/main.css?v=3\"></head><body class=\"min-h-screen bg-slate-100 text-slate-900 antialiased\"><header class=\"border-b border-slate-200 bg-white\"><div class=\"mx-auto flex max-w-5xl items-center gap-4 px-4 py-3\"><a href=\"/\" class=\"flex items-center gap-2\"><img src=\"/static/logo.png\" alt=\"Louvores\" class=\"h-11 w-auto object-contain\"> <span class=\"text-xl font-bold text-indigo-700\">Louvores</span></a><nav class=\"flex gap-4 text-sm text-slate-600\"><a href=\"/stats\" class=\"hover:text-indigo-700\">Estatísticas</a> <a href=\"/slides\" class=\"hover:text-indigo-700\">Slides</a></nav></div></header><main class=\"mx-auto max-w-5xl px-4 py-8\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/static/main.css?v=4\"></head><body class=\"min-h-screen bg-slate-100 text-slate-900 antialiased\"><header class=\"border-b border-slate-200 bg-white\"><div class=\"mx-auto flex max-w-5xl items-center gap-4 px-4 py-3\"><a href=\"/\" class=\"flex items-center gap-2\"><img src=\"/static/logo.png\" alt=\"Louvores\" class=\"h-11 w-auto object-contain\"> <span class=\"text-xl font-bold text-indigo-700\">Louvores</span></a><nav class=\"flex gap-4 text-sm text-slate-600\"><a href=\"/stats\" class=\"hover:text-indigo-700\">Estatísticas</a> <a href=\"/slides\" class=\"hover:text-indigo-700\">Slides</a></nav></div></header><main class=\"mx-auto max-w-5xl px-4 py-8\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -72,7 +70,7 @@ func Layout(title string, version string, children templ.Component) templ.Compon
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(version)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout.templ`, Line: 39, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout.templ`, Line: 38, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {

@@ -181,8 +181,8 @@ func slidesContent(coletaneas []models.Coletanea, hinos []models.Hino, seleciona
 	})
 }
 
-// HinosGrid é o fragmento com a grade de cards dos hinos da coletânea,
-// servido por /web/slides/hinos e consumido pelo HTMX.
+// HinosGrid é a grade de cards dos hinos da coletânea selecionada, renderizada
+// dentro de slidesContent na página /slides.
 func HinosGrid(hinos []models.Hino, codigo string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

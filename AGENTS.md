@@ -7,7 +7,7 @@ Porte para Go da aplicação **Louvores** (geração de slides PPTX de hinos). O
 - **Go ≥ 1.25** (`go.mod`), `go 1.25.0`.
 - **HTTP**: `net/http` stdlib (ServeMux Go 1.22+, padrões `METHOD /rota/{param}`) — sem framework.
 - **API**: REST JSON, fase atual somente leitura.
-- **Interface web**: `templ` (templates tipados) + **Tailwind CSS**. As views ficam em `internal/web/` e são servidas como HTML completo já com os dados embutidos no render (sem HTMX). Os arquivos `_templ.go` gerados e o `main.css` gerado são commitados.
+- **Interface web**: `templ` (templates tipados), servidas como HTML completo já com os dados embutidos no render (sem HTMX). Estilos em `internal/web/static/main.css`, **mantido manualmente** (sem build de CSS). As views ficam em `internal/web/`. Os arquivos `_templ.go` gerados são commitados.
 - **DB**: SQLite via `database/sql` + `modernc.org/sqlite` (100% Go, sem CGO). Testes usam `:memory:`.
 - **PPTX**: geração própria sobre o pacote OOXML (`archive/zip` + `encoding/xml`), preservando o template byte-a-byte e registrando os slides novos de forma consistente (`[Content_Types].xml`, `.rels`, `sldIdLst`). `github.com/baliance/gooxml` (AGPL-3.0) é usado **somente como validador nos testes** (`presentation.Open`); o código de produção não o importa.
 - **Config**: `joho/godotenv` + env vars com defaults.
@@ -27,12 +27,14 @@ make build           # compila com versão (VERSION, git commit e data via -ldfl
 
 A versão é definida por `make build VERSION=x.y.z` (default `dev`); o commit e a data vêm do git. Sem build flags, `version.String()` retorna `dev`.
 
-**Geração da interface web** (é preciso rodar antes de alterar `.templ`/CSS e commitá-los):
+**Geração da interface web** (é preciso rodar antes de alterar `.templ` e commitá-los):
 
 ```bash
 templ generate ./...              # gera _templ.go a partir de *.templ
-./scripts/build-css.sh            # gera internal/web/static/main.css (Tailwind, via node do Windows/WSL)
 ```
+
+> O `main.css` é mantido manualmente em `internal/web/static/main.css`
+> (sem build de CSS nem dependência de Node).
 
 ## Execução
 
@@ -60,7 +62,7 @@ Interface web (HTML via templ, servida no mesmo binário):
 | `GET` | `/slides` | página de geração de slides (seletor de coletânea; `?codigo=` preenche a grade de hinos) |
 | `GET` | `/web/hinos/{codigo}/{numero}/editar` | formulário de edição do hino (título, letra, créditos, revisão) |
 | `POST` | `/web/hinos/{codigo}/{numero}` | persiste as alterações do hino (Title Case na letra) e redireciona (303) para `/slides` |
-| `GET` | `/static/` | arquivos estáticos (main.css gerado pelo Tailwind) |
+| `GET` | `/static/` | arquivos estáticos (main.css, logo/ícones) |
 
 As rotas web são mais específicas que o `/` e, por isso, têm prioridade no
 mux raiz: a API é delegada para `/` e as páginas web para os caminhos acima.
@@ -90,7 +92,7 @@ internal/
   web/
     handler.go              Interface web: mux raiz (API em "/" + páginas/static)
     templates/*.templ       Views templ (layout base + stats + slides + editar) → _templ.go gerado
-    static/                 input.css (fonte Tailwind) + main.css (gerado) + logo/ícones PNG
+    static/                 main.css (mantido manualmente, sem build) + logo/ícones PNG
   domain/slide_parts.go     TipoParte, ParteHino, SequenciaHino
   processors/lyrics_parser.go  Letra → estrofes/refrões (por indentação)
   ppt/
@@ -110,9 +112,9 @@ Fluxo da interface web: HTTP (internal/web) → Services (mesmos serviços da AP
 - **Resposta de erro**: `{"error": "..."}`; 404 para sentinelas de não encontrado, 400 para parâmetro inválido, 500 genérico com detalhe só no log.
 - **Estatísticas** (`services.stats_service.go`): `percentual` = hinos com letra ÷ total × 100; `percentual_revisados` = hinos revisados ÷ hinos com letra × 100. Ambos `0.0` quando o denominador é zero.
 - **Detecção de refrão**: todas as linhas do bloco começam com espaço/tab → refrão (indentação removida); senão → estrofe.
-- **Interface web**: views `templ` em `internal/web/templates`; o `Layout(title, version, children)` é o esqueleto HTML base (Tailwind); a `version` é exibida no rodapé (`v{version}`). As páginas são servidas como HTML completo, já com os dados embutidos no render (sem HTMX). Os arquivos gerados (`_templ.go`, `main.css`) são commitados; para regenerá-los use `templ generate ./...` e `./scripts/build-css.sh`.
+- **Interface web**: views `templ` em `internal/web/templates`; o `Layout(title, version, children)` é o esqueleto HTML base (classes utilitárias definidas em `main.css`); a `version` é exibida no rodapé (`v{version}`). As páginas são servidas como HTML completo, já com os dados embutidos no render (sem HTMX). Os arquivos gerados (`_templ.go`) são commitados; para regenerá-los use `templ generate ./...`. O `main.css` é mantido manualmente.
 - **Versão** (`internal/version`): variáveis `Version`/`Commit`/`Date` injetadas via `-ldflags -X` no `make build`; `String()` formata (com ou sem commit/data). A versão flui de `main.go` → `web.New` → `Layout` (rodapé).
-- **Cards de hinos** (`slides.templ`): exibidos em grade responsiva de até 8 colunas em telas largas (`grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8`); `auto-rows-fr` + `h-full` no card garantem **altura uniforme** entre linhas. Cada card tem conteúdo **centralizado** (`items-center text-center`), mostra numeração em destaque (`%03d`, fonte maior que o título) e o título na linha abaixo. No **rodapé do card** (linha `mt-auto flex items-center justify-center`, empurrada para a base), há os ícones de ação: `edit.png` (edição, sempre visível, aponta para `/web/hinos/{codigo}/{numero}/editar`) e `ppt.png` (gerar slide, apenas hinos revisados) — ambos em `internal/web/static/`, servidos em `/static/`, com `aria-label`. O `ppt.png` aponta para `/api/coletaneas/{codigo}/hinos/{numero}/slides`. Cor de fundo por estado do hino — sem letra `#FFB7B2`, letra não revisada `#FFF5BA`, revisado `#B5EAD7` — aplicada via `style` inline (cores fora do palette padrão do Tailwind).
+- **Cards de hinos** (`slides.templ`): exibidos em grade responsiva de até 8 colunas em telas largas (`grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8`); `auto-rows-fr` + `h-full` no card garantem **altura uniforme** entre linhas. Cada card tem conteúdo **centralizado** (`items-center text-center`), mostra numeração em destaque (`%03d`, fonte maior que o título) e o título na linha abaixo. No **rodapé do card** (linha `mt-auto flex items-center justify-center`, empurrada para a base), há os ícones de ação: `edit.png` (edição, sempre visível, aponta para `/web/hinos/{codigo}/{numero}/editar`) e `ppt.png` (gerar slide, apenas hinos revisados) — ambos em `internal/web/static/`, servidos em `/static/`, com `aria-label`. O `ppt.png` aponta para `/api/coletaneas/{codigo}/hinos/{numero}/slides`. Cor de fundo por estado do hino — sem letra `#FFB7B2`, letra não revisada `#FFF5BA`, revisado `#B5EAD7` — aplicada via `style` inline (cores fora do palette padrão, por isso inline).
 - **Edição de hinos** (`editar.templ` + `HinoService.AtualizarHino`): formulário com título, letra (textarea), créditos e checkbox "revisado". Número e coletânea vêm da rota (não editáveis). A letra é convertida para Title Case antes de salvar (`titularLetra`, preservando indentação de refrões e texto já em caixa mista). Revisão é **irreversível**: se o hino já é revisado, o checkbox fica `disabled` e o serviço mantém `Revisado=true` mesmo se o formulário o enviar desmarcado. Uso de `templ.Component` + render via `Render(ctx, w)`; o POST segue PRG (303 → `/slides`).
 - **Quebras de linha**: o textarea do formulário pode enviar CRLF (`\r\n`). `HinoService.titularLetra` e `processors.ProcessarHino` normalizam para LF (`normalizeNewlines`), evitando linha em branco extra nos slides. Ordem: `\r\n` → `\n` primeiro, depois `\r` isolado.
 - **Blocos**: separados por linha em branco (`\n\s*\n`).

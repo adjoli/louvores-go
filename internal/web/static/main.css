@@ -1,3 +1,15 @@
+/*
+ * main.css — folha de estilos da interface web.
+ *
+ * NOTA DE MANUTENÇÃO: este arquivo é mantido MANUALMENTE (não é mais gerado
+ * pelo Tailwind). Ele congela a compilação dos utilitários usados nos
+ * templates *.templ (~100 classes). Para adicionar/alterar um estilo, edite
+ * este arquivo diretamente e incremente o valor de "?v=" no link do
+ * layout.templ (query string de cache-busting) quando necessário.
+ *
+ * Sem Node, sem build de CSS — apenas templ generate ./... é necessário.
+ */
+
 *, ::before, ::after {
   --tw-border-spacing-x: 0;
   --tw-border-spacing-y: 0;
