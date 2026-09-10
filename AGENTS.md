@@ -8,7 +8,7 @@ Porte para Go da aplicação **Louvores** (geração de slides PPTX de hinos). O
 - **HTTP**: `net/http` stdlib (ServeMux Go 1.22+, padrões `METHOD /rota/{param}`) — sem framework.
 - **API**: REST JSON, fase atual somente leitura.
 - **Interface web**: `templ` (templates tipados), servidas como HTML completo já com os dados embutidos no render (sem HTMX). Estilos em `internal/web/static/main.css`, **mantido manualmente** (sem build de CSS). As views ficam em `internal/web/`. Os arquivos `_templ.go` gerados são commitados.
-- **DB**: SQLite via `database/sql` + `modernc.org/sqlite` (100% Go, sem CGO). Testes usam `:memory:`.
+- **DB**: SQLite via `database/sql` + `modernc.org/sqlite` (100% Go, sem CGO) por padrão; alternativamente Turso na nuvem via `github.com/tursodatabase/libsql-client-go/libsql` (puro Go, protocolo libSQL sobre HTTP/WebSocket), ativado por `TURSO_DATABASE_URL`. Testes usam `:memory:`.
 - **PPTX**: geração própria sobre o pacote OOXML (`archive/zip` + `encoding/xml`), preservando o template byte-a-byte e registrando os slides novos de forma consistente (`[Content_Types].xml`, `.rels`, `sldIdLst`). `github.com/baliance/gooxml` (AGPL-3.0) é usado **somente como validador nos testes** (`presentation.Open`); o código de produção não o importa.
 - **Config**: `joho/godotenv` + env vars com defaults.
 - **Logging**: `log/slog` → `logs/app.log` + console (nível INFO).
@@ -70,7 +70,7 @@ mux raiz: a API é delegada para `/` e as páginas web para os caminhos acima.
 `POST /web/hinos/{codigo}/{numero}` é o primeiro ponto de escrita da
 aplicação (os demais endpoints continuam somente leitura).
 
-Variáveis de ambiente (com defaults): `DB_PATH` (`data/hinos.db`), `TEMPLATE_PATH` (`data/templates/default.pptx`), `LOG_PATH` (`logs/app.log`), `HOST` (vazio = todas as interfaces), `PORT` (`8080`). `.env` opcional.
+Variáveis de ambiente (com defaults): `DB_PATH` (`data/hinos.db`), `TURSO_DATABASE_URL` (vazio = SQLite local), `TURSO_AUTH_TOKEN` (vazio; obrigatório quando a URL do Turso está definida), `TEMPLATE_PATH` (`data/templates/default.pptx`), `LOG_PATH` (`logs/app.log`), `HOST` (vazio = todas as interfaces), `PORT` (`8080`). `.env` opcional.
 
 ## Arquitetura
 
@@ -80,7 +80,7 @@ internal/
   config/                   Paths + env (DB, TEMPLATE, LOG, HOST, PORT) + Addr()
   logging/                  slog → arquivo + console
   database/
-    db.go                   SQLite (database/sql + modernc), DDL idempotente
+    db.go                   SQLite (database/sql + modernc) e Turso (libsql-client-go), DDL idempotente
   models/models.go          structs Coletanea, Hino
   repository/               Repositórios por entidade (única camada que fala SQL)
     hino_repository.go      CRUD + ListByColetanea, FindByNumero, StatsPorColetanea
@@ -100,7 +100,7 @@ internal/
     ppt_generator.go        template → slides → []byte (ZIP/OOXML manual, preserva as partes)
 ```
 
-Fluxo da API: HTTP (internal/api) → Services → Repository → SQLite. Erros como valores (sentinelas `repository.ErrHinoNotFound`, `repository.ErrColetaneaNotFound`). Escrita (edição de hinos via interface web; geração de slides via download) ocorre sobre os mesmos serviços/repositórios.
+Fluxo da API: HTTP (internal/api) → Services → Repository → SQLite (ou Turso, quando `TURSO_DATABASE_URL` está definida). Erros como valores (sentinelas `repository.ErrHinoNotFound`, `repository.ErrColetaneaNotFound`). Escrita (edição de hinos via interface web; geração de slides via download) ocorre sobre os mesmos serviços/repositórios.
 
 Fluxo da interface web: HTTP (internal/web) → Services (mesmos serviços da API, sem chamada HTTP interna) → Templates templ (HTML completo já com os dados). A página `/stats` renderiza a tabela de estatísticas embutida no HTML. A página `/slides` apresenta um seletor de coletânea; a seleção usa um formulário que faz `GET /slides?codigo=` e recarrega a página com a grade de hinos já renderizada. A edição de um hino segue o fluxo PRG (Post/Redirect/Get): `GET /web/hinos/{codigo}/{numero}/editar` renderiza o formulário e `POST /web/hinos/{codigo}/{numero}` persiste (via `HinoService.AtualizarHino`, que aplica Title Case na letra e mantém revisão irreversível) e redireciona (303) para `/slides`.
 

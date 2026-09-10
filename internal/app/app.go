@@ -89,9 +89,9 @@ func New() (*App, error) {
 		return nil, fmt.Errorf("inicializar logging: %w", err)
 	}
 
-	db, err := database.Open(cfg.DBPath)
+	db, err := openDatabase(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("inicializar banco: %w", err)
+		return nil, err
 	}
 
 	if err := database.Migrate(db); err != nil {
@@ -109,4 +109,23 @@ func New() (*App, error) {
 		hinoSvc:  services.NewHinoService(hinoRepo, coletaneaRepo, cfg.TemplatePath),
 		statsSvc: services.NewStatsService(hinoRepo),
 	}, nil
+}
+
+// openDatabase abre a conexão de banco conforme a configuração: Turso na
+// nuvem quando TURSO_DATABASE_URL está definida; caso contrário, o SQLite
+// local em cfg.DBPath.
+func openDatabase(cfg *config.Config) (*sql.DB, error) {
+	if cfg.UsarTurso() {
+		db, err := database.OpenRemote(cfg.TursoURL, cfg.TursoAuthToken)
+		if err != nil {
+			return nil, fmt.Errorf("inicializar banco Turso: %w", err)
+		}
+		return db, nil
+	}
+
+	db, err := database.Open(cfg.DBPath)
+	if err != nil {
+		return nil, fmt.Errorf("inicializar banco: %w", err)
+	}
+	return db, nil
 }

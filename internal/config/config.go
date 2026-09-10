@@ -13,8 +13,18 @@ import (
 
 const (
 	// EnvDatabasePath é o nome da variável de ambiente que define o caminho
-	// do banco SQLite.
+	// do banco SQLite local (usado quando TURSO_DATABASE_URL não está
+	// definida).
 	EnvDatabasePath = "DB_PATH"
+
+	// EnvTursoURL é o nome da variável de ambiente que define a URL do banco
+	// Turso na nuvem (ex.: libsql://meu-banco.turso.io). Quando presente, a
+	// aplicação usa o Turso em vez do SQLite local.
+	EnvTursoURL = "TURSO_DATABASE_URL"
+
+	// EnvTursoAuthToken é o nome da variável de ambiente que define o token de
+	// autenticação do banco Turso.
+	EnvTursoAuthToken = "TURSO_AUTH_TOKEN"
 
 	// EnvTemplatePath é o nome da variável de ambiente que define o caminho
 	// do template PPTX usado na geração.
@@ -49,11 +59,20 @@ const (
 // Config armazena as configurações carregadas da aplicação.
 // Todos os campos são sempre preenchidos em New (default ou variável).
 type Config struct {
-	DBPath       string
-	TemplatePath string
-	LogPath      string
-	Host         string
-	Port         string
+	DBPath         string
+	TursoURL       string
+	TursoAuthToken string
+	TemplatePath   string
+	LogPath        string
+	Host           string
+	Port           string
+}
+
+// UsarTurso indica se a aplicação deve conectar ao Turso na nuvem. É
+// verdadeiro quando TURSO_DATABASE_URL está definida; caso contrário a
+// aplicação usa o SQLite local (DB_PATH).
+func (c *Config) UsarTurso() bool {
+	return c.TursoURL != ""
 }
 
 // Addr retorna o endereço de escuta do servidor HTTP no formato
@@ -83,8 +102,10 @@ func New() (*Config, error) {
 		return nil, err
 	}
 
-	if err := prepareDatabasePath(cfg); err != nil {
-		return nil, fmt.Errorf("prepare database path: %w", err)
+	if !cfg.UsarTurso() {
+		if err := prepareDatabasePath(cfg); err != nil {
+			return nil, fmt.Errorf("prepare database path: %w", err)
+		}
 	}
 
 	return cfg, nil
@@ -107,6 +128,12 @@ func loadEnvironment(cfg *Config) error {
 	if v, ok := os.LookupEnv(EnvDatabasePath); ok && v != "" {
 		cfg.DBPath = v
 	}
+	if v, ok := os.LookupEnv(EnvTursoURL); ok && v != "" {
+		cfg.TursoURL = v
+	}
+	if v, ok := os.LookupEnv(EnvTursoAuthToken); ok && v != "" {
+		cfg.TursoAuthToken = v
+	}
 	if v, ok := os.LookupEnv(EnvTemplatePath); ok && v != "" {
 		cfg.TemplatePath = v
 	}
@@ -128,6 +155,9 @@ func loadEnvironment(cfg *Config) error {
 func validate(cfg *Config) error {
 	if cfg.DBPath == "" {
 		return fmt.Errorf("DB_PATH não pode ser vazio")
+	}
+	if cfg.TursoURL != "" && cfg.TursoAuthToken == "" {
+		return fmt.Errorf("TURSO_AUTH_TOKEN é obrigatório quando TURSO_DATABASE_URL está definida")
 	}
 	if cfg.TemplatePath == "" {
 		return fmt.Errorf("TEMPLATE_PATH não pode ser vazio")

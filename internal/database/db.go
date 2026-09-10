@@ -1,9 +1,15 @@
-// Package database implementa o acesso ao SQLite.
+// Package database implementa o acesso ao banco de dados.
 //
-// Driver: modernc.org/sqlite (100% Go, sem CGO). A abertura da conexão
-// (Open) é separada da aplicação do schema (Migrate), e o DDL é idempotente
-// (IF NOT EXISTS) para permitir execuções repetidas com segurança — é o
-// mesmo caminho usado por testes com banco em memória.
+// Há dois modos de conexão:
+//   - SQLite local, via modernc.org/sqlite (100% Go, sem CGO), aberto por
+//     Open a partir de um caminho/arquivo;
+//   - Turso na nuvem, via libsql-client-go (puro Go, protocolo libSQL sobre
+//     HTTP/WebSocket), aberto por OpenRemote a partir da URL e do token.
+//
+// A abertura da conexão (Open/OpenRemote) é separada da aplicação do schema
+// (Migrate), e o DDL é idempotente (IF NOT EXISTS) para permitir execuções
+// repetidas com segurança — é o mesmo caminho usado por testes com banco em
+// memória.
 //
 // Este pacote fica restrito à conexão e ao schema: os tipos de dados vivem
 // em internal/models e as consultas SQL em internal/repository — a única
@@ -16,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/tursodatabase/libsql-client-go/libsql"
 	_ "modernc.org/sqlite"
 )
 
@@ -75,6 +82,30 @@ func Open(path string) (*sql.DB, error) {
 	}
 
 	conn.SetMaxOpenConns(1)
+	return conn, nil
+}
+
+// OpenRemote abre uma conexão com um banco Turso na nuvem e devolve um
+// *sql.DB pronto para uso.
+//
+// A URL deve usar o esquema libsql:// (ex.: libsql://meu-banco.turso.io) e o
+// token é passado via libsql.WithAuthToken — a versão atual do driver proíbe
+// o parâmetro ?authToken= na URL. O pool de conexões é deixado no padrão do
+// database/sql: a limitação de uma única conexão de Open existe apenas por
+// causa do lock de arquivo do SQLite local e não se aplica ao Turso.
+func OpenRemote(url, authToken string) (*sql.DB, error) {
+	connector, err := libsql.NewConnector(url, libsql.WithAuthToken(authToken))
+	if err != nil {
+		return nil, fmt.Errorf("criar conector Turso %q: %w", url, err)
+	}
+
+	conn := sql.OpenDB(connector)
+
+	if err := conn.Ping(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("ping Turso %q: %w", url, err)
+	}
+
 	return conn, nil
 }
 

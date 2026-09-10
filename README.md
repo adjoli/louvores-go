@@ -88,12 +88,26 @@ Variáveis de ambiente (todas com defaults):
 | Variável | Default |
 |---|---|
 | `DB_PATH` | `data/hinos.db` |
+| `TURSO_DATABASE_URL` | *(vazio — usa o SQLite local)* |
+| `TURSO_AUTH_TOKEN` | *(vazio)* |
 | `TEMPLATE_PATH` | `data/templates/default.pptx` |
 | `LOG_PATH` | `logs/app.log` |
 | `HOST` | *(vazio — todas as interfaces)* |
 | `PORT` | `8080` |
 
 Um `.env` opcional é carregado na inicialização.
+
+### Banco de dados: Turso na nuvem ou SQLite local
+
+Quando `TURSO_DATABASE_URL` está definida (ex.: `libsql://meu-banco.turso.io`), a aplicação conecta ao **Turso na nuvem** usando o driver `libsql-client-go` (puro Go, sem CGO); `TURSO_AUTH_TOKEN` é **obrigatório** nesse modo. Caso a variável não esteja definida, a aplicação mantém o **SQLite local** em `DB_PATH` (`modernc.org/sqlite`). O schema é aplicado automaticamente nos dois modos (`Migrate`, DDL idempotente).
+
+```bash
+export TURSO_DATABASE_URL="libsql://meu-banco.turso.io"
+export TURSO_AUTH_TOKEN="seu-token-aqui"
+./louvores
+```
+
+Nunca comite o token — mantenha-o no `.env` (já ignorado pelo git) ou em variáveis de ambiente.
 
 ## Testes
 
@@ -111,7 +125,7 @@ templ generate ./...            # gera _templ.go a partir de *.templ
 
 ## Arquitetura
 
-`internal/app` (composition root) monta as dependências e as injeta nos handlers HTTP — `internal/api` (REST/JSON) e `internal/web` (interface HTML/templ) — → `internal/services` → `internal/repository` → SQLite (`modernc.org/sqlite`). Detalhes em `AGENTS.md`.
+`internal/app` (composition root) monta as dependências e as injeta nos handlers HTTP — `internal/api` (REST/JSON) e `internal/web` (interface HTML/templ) — → `internal/services` → `internal/repository` → SQLite (`modernc.org/sqlite`) ou Turso (`libsql-client-go`), conforme `TURSO_DATABASE_URL`. Detalhes em `AGENTS.md`.
 
 ### Geração de slides (PPTX)
 
