@@ -14,8 +14,8 @@ import (
 // StatsPage renderiza a página completa de estatísticas dentro do layout
 // base, já com a tabela embutida. version é exibida no rodapé. stats é a
 // lista agregada por coletânea (pode ser vazia).
-templ StatsPage(stats []services.ColetaneaStats, version string) {
-	@Layout("Estatísticas · Louvores", version, statsContent(stats))
+templ StatsPage(stats []services.ColetaneaStats, version string, autenticado bool) {
+	@Layout("Estatísticas · Louvores", version, autenticado, statsContent(stats))
 }
 
 // statsContent monta o conteúdo principal da página: uma tabela quando há

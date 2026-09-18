@@ -11,6 +11,7 @@ Geração automatizada de slides PowerPoint para hinos e louvores cristãos a pa
 - Edição de hinos pela interface web (título, letra com Title Case, créditos e revisão irreversível)
 - Geração e download de slides (PPTX) a partir de um template único, preservando todas as partes do template
 - Revisão de letras (aprovação) — implementada na edição, irreversível
+- Autenticação por senha única compartilhada, com sessão em cookie assinado (HMAC) e tela de login
 
 ## Requisitos
 
@@ -48,7 +49,9 @@ A versão pode ser definida em `make build VERSION=1.2.3` (default `dev`); o com
 
 A documentação interativa fica em http://localhost:8080/api/docs — os assets do Swagger UI são carregados via CDN.
 
-Erros retornam `{"error": "..."}` com status 404 (coletânea/hino inexistente), 400 (número inválido), 409 (hino não revisado) ou 500. O contrato JSON usa snake_case; campos opcionais ausentes no banco são serializados como `null`. Um teste garante a paridade entre as rotas registradas e a spec OpenAPI.
+Erros retornam `{"error": "..."}` com status 404 (coletânea/hino inexistente), 400 (número inválido), 409 (hino não revisado), 401 (não autenticado) ou 500. O contrato JSON usa snake_case; campos opcionais ausentes no banco são serializados como `null`. Um teste garante a paridade entre as rotas registradas e a spec OpenAPI.
+
+Com a autenticação ativa, os endpoints `/api/*` exigem sessão válida (exceto `/api/healthz`) e respondem **401** com `{"error":"não autenticado"}` quando ela falta.
 
 ### Interface web
 
@@ -56,6 +59,10 @@ Uma interface web HTML é servida no mesmo binário, em `http://localhost:8080/`
 
 | Rota | Descrição |
 |---|---|
+| `GET /` | redireciona (302) para `/slides` (destino do logo no cabeçalho) |
+| `GET /login` | formulário de login (senha única) |
+| `POST /login` | valida a senha, emite o cookie de sessão e redireciona (303) para `/slides` |
+| `POST /logout` | invalida o cookie de sessão e redireciona (303) para `/login` |
 | `GET /stats` | página de estatísticas (tabela embutida no HTML) |
 | `GET /slides` | página de geração de slides (seletor de coletânea; `?codigo=` preenche a grade de hinos) |
 | `GET /web/hinos/{codigo}/{numero}/editar` | formulário de edição do hino (título, letra, créditos, revisão) |
@@ -94,8 +101,29 @@ Variáveis de ambiente (todas com defaults):
 | `LOG_PATH` | `logs/app.log` |
 | `HOST` | *(vazio — todas as interfaces)* |
 | `PORT` | `8080` |
+| `AUTH_PASSWORD` | *(vazio — autenticação desligada)* |
+| `SESSION_SECRET` | *(vazio — chave aleatória em runtime)* |
+| `COOKIE_SECURE` | `false` |
+| `SESSION_TTL` | `24h` |
 
 Um `.env` opcional é carregado na inicialização.
+
+### Autenticação
+
+A aplicação usa **senha única compartilhada** com sessão em cookie assinado (HMAC-SHA256) — sem tabela de usuários. Defina `AUTH_PASSWORD` para ativar a proteção; com ela vazia, a autenticação fica desligada (útil apenas em desenvolvimento local).
+
+Com a autenticação ativa, **tudo fica protegido** — API REST, páginas web e geração de slides — exceto as rotas públicas `/login`, `/api/healthz` e `/static/`. Requisições não autenticadas a `/api/*` recebem **401**; navegadores são redirecionados para `/login`. O cookie é `HttpOnly` e `SameSite=Lax`. Após o login (e ao acessar a raiz `/`), o usuário é levado à página `/slides`.
+
+```bash
+export AUTH_PASSWORD="minha-senha"
+export SESSION_SECRET="$(openssl rand -hex 32)"   # evita logout a cada restart
+export COOKIE_SECURE=true                          # atrás de HTTPS
+./louvores
+```
+
+- `SESSION_SECRET` assina o cookie de sessão. Se não for definida, uma chave aleatória é gerada em runtime e as sessões caem a cada restart (um aviso é registrado).
+- `COOKIE_SECURE=true` faz o navegador enviar o cookie apenas via HTTPS; deixe `false` apenas em acesso local por HTTP.
+- `SESSION_TTL` controla a validade da sessão (ex.: `12h`).
 
 ### Banco de dados: Turso na nuvem ou SQLite local
 
@@ -125,7 +153,7 @@ templ generate ./...            # gera _templ.go a partir de *.templ
 
 ## Arquitetura
 
-`internal/app` (composition root) monta as dependências e as injeta nos handlers HTTP — `internal/api` (REST/JSON) e `internal/web` (interface HTML/templ) — → `internal/services` → `internal/repository` → SQLite (`modernc.org/sqlite`) ou Turso (`libsql-client-go`), conforme `TURSO_DATABASE_URL`. Detalhes em `AGENTS.md`.
+`internal/app` (composition root) monta as dependências e as injeta nos handlers HTTP — `internal/api` (REST/JSON) e `internal/web` (interface HTML/templ) — → `internal/services` → `internal/repository` → SQLite (`modernc.org/sqlite`) ou Turso (`libsql-client-go`), conforme `TURSO_DATABASE_URL`. O `internal/auth` fornece o middleware de sessão que envolve todas as rotas (exceto as públicas). Detalhes em `AGENTS.md`.
 
 ### Geração de slides (PPTX)
 

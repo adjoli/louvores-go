@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/adjoli/louvores-go/internal/auth"
 	"github.com/adjoli/louvores-go/internal/config"
 	"github.com/adjoli/louvores-go/internal/database"
 	"github.com/adjoli/louvores-go/internal/logging"
@@ -32,6 +33,7 @@ type App struct {
 	logger   *slog.Logger
 	hinoSvc  *services.HinoService
 	statsSvc *services.StatsService
+	authSvc  *auth.Service
 }
 
 // Config retorna a configuração carregada da aplicação.
@@ -57,6 +59,11 @@ func (a *App) HinoService() *services.HinoService {
 // StatsService retorna o serviço de estatísticas.
 func (a *App) StatsService() *services.StatsService {
 	return a.statsSvc
+}
+
+// AuthService retorna o serviço de autenticação (senha única + sessão).
+func (a *App) AuthService() *auth.Service {
+	return a.authSvc
 }
 
 // Close fecha a conexão com o banco de dados.
@@ -108,6 +115,7 @@ func New() (*App, error) {
 		logger:   logger,
 		hinoSvc:  services.NewHinoService(hinoRepo, coletaneaRepo, cfg.TemplatePath),
 		statsSvc: services.NewStatsService(hinoRepo),
+		authSvc:  auth.New(cfg),
 	}, nil
 }
 

@@ -53,6 +53,7 @@ func main() {
 		api.New(aplicacao.HinoService(), aplicacao.StatsService()).Routes(),
 		aplicacao.HinoService(),
 		aplicacao.StatsService(),
+		aplicacao.AuthService(),
 		version.String(),
 	).Routes()
 

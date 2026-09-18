@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -41,6 +43,23 @@ const (
 	// servidor HTTP.
 	EnvPort = "PORT"
 
+	// EnvAuthPassword é o nome da variável de ambiente que define a senha
+	// única de acesso à aplicação. Vazia desliga a autenticação (uso local).
+	EnvAuthPassword = "AUTH_PASSWORD"
+
+	// EnvSessionSecret é o nome da variável de ambiente que define a chave
+	// HMAC usada para assinar o cookie de sessão. Vazia gera uma chave
+	// aleatória em runtime (as sessões não sobrevivem ao restart).
+	EnvSessionSecret = "SESSION_SECRET"
+
+	// EnvCookieSecure é o nome da variável de ambiente que define se o
+	// cookie de sessão deve ser enviado apenas via HTTPS (flag Secure).
+	EnvCookieSecure = "COOKIE_SECURE"
+
+	// EnvSessionTTL é o nome da variável de ambiente que define a duração
+	// da sessão (formato Go, ex.: 12h, 24h).
+	EnvSessionTTL = "SESSION_TTL"
+
 	// DefaultDBPath é o banco padrão quando DB_PATH não está definida.
 	DefaultDBPath = "data/hinos.db"
 
@@ -54,6 +73,10 @@ const (
 
 	// DefaultPort é a porta padrão quando PORT não está definida.
 	DefaultPort = "8080"
+
+	// DefaultSessionTTL é a duração padrão da sessão quando SESSION_TTL não
+	// está definida.
+	DefaultSessionTTL = 24 * time.Hour
 )
 
 // Config armazena as configurações carregadas da aplicação.
@@ -66,6 +89,19 @@ type Config struct {
 	LogPath        string
 	Host           string
 	Port           string
+
+	// Autenticação (senha única + cookie de sessão assinado).
+	AuthPassword  string
+	SessionSecret string
+	CookieSecure  bool
+	SessionTTL    time.Duration
+}
+
+// AuthEnabled indica se a autenticação está ativa. É verdadeiro quando
+// AUTH_PASSWORD está definida; caso contrário a aplicação roda sem exigir
+// login (adequado apenas para desenvolvimento local).
+func (c *Config) AuthEnabled() bool {
+	return c.AuthPassword != ""
 }
 
 // UsarTurso indica se a aplicação deve conectar ao Turso na nuvem. É
@@ -118,6 +154,7 @@ func defaultConfig() *Config {
 		TemplatePath: DefaultTemplatePath,
 		LogPath:      DefaultLogPath,
 		Port:         DefaultPort,
+		SessionTTL:   DefaultSessionTTL,
 	}
 }
 
@@ -145,6 +182,26 @@ func loadEnvironment(cfg *Config) error {
 	}
 	if v, ok := os.LookupEnv(EnvPort); ok && v != "" {
 		cfg.Port = v
+	}
+	if v, ok := os.LookupEnv(EnvAuthPassword); ok && v != "" {
+		cfg.AuthPassword = v
+	}
+	if v, ok := os.LookupEnv(EnvSessionSecret); ok && v != "" {
+		cfg.SessionSecret = v
+	}
+	if v, ok := os.LookupEnv(EnvCookieSecure); ok && v != "" {
+		secure, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("%s inválido %q: %w", EnvCookieSecure, v, err)
+		}
+		cfg.CookieSecure = secure
+	}
+	if v, ok := os.LookupEnv(EnvSessionTTL); ok && v != "" {
+		ttl, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("%s inválido %q: %w", EnvSessionTTL, v, err)
+		}
+		cfg.SessionTTL = ttl
 	}
 	return nil
 }

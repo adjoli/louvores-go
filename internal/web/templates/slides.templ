@@ -25,8 +25,8 @@ import (
 // coletânea e a grade de hinos (preenchida se houver codigo). selecionada é
 // o código da coletânea corrente ("" antes de selecionar). version é exibida
 // no rodapé.
-templ SlidesPage(coletaneas []models.Coletanea, hinos []models.Hino, selecionada string, version string) {
-	@Layout("Geração de Slides · Louvores", version, slidesContent(coletaneas, hinos, selecionada))
+templ SlidesPage(coletaneas []models.Coletanea, hinos []models.Hino, selecionada string, version string, autenticado bool) {
+	@Layout("Geração de Slides · Louvores", version, autenticado, slidesContent(coletaneas, hinos, selecionada))
 }
 
 // slidesContent monta o formulário de seleção da coletânea e a grade de

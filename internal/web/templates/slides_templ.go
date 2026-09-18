@@ -48,7 +48,7 @@ import (
 // coletânea e a grade de hinos (preenchida se houver codigo). selecionada é
 // o código da coletânea corrente ("" antes de selecionar). version é exibida
 // no rodapé.
-func SlidesPage(coletaneas []models.Coletanea, hinos []models.Hino, selecionada string, version string) templ.Component {
+func SlidesPage(coletaneas []models.Coletanea, hinos []models.Hino, selecionada string, version string, autenticado bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -69,7 +69,7 @@ func SlidesPage(coletaneas []models.Coletanea, hinos []models.Hino, selecionada 
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout("Geração de Slides · Louvores", version, slidesContent(coletaneas, hinos, selecionada)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Geração de Slides · Louvores", version, autenticado, slidesContent(coletaneas, hinos, selecionada)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

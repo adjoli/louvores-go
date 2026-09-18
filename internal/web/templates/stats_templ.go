@@ -27,7 +27,7 @@ import (
 // StatsPage renderiza a página completa de estatísticas dentro do layout
 // base, já com a tabela embutida. version é exibida no rodapé. stats é a
 // lista agregada por coletânea (pode ser vazia).
-func StatsPage(stats []services.ColetaneaStats, version string) templ.Component {
+func StatsPage(stats []services.ColetaneaStats, version string, autenticado bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -48,7 +48,7 @@ func StatsPage(stats []services.ColetaneaStats, version string) templ.Component 
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout("Estatísticas · Louvores", version, statsContent(stats)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Estatísticas · Louvores", version, autenticado, statsContent(stats)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

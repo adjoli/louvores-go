@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/adjoli/louvores-go/internal/auth"
 	"github.com/adjoli/louvores-go/internal/models"
 	"github.com/adjoli/louvores-go/internal/repository"
 	"github.com/adjoli/louvores-go/internal/services"
@@ -32,18 +33,20 @@ type Web struct {
 	api      http.Handler
 	hinoSvc  *services.HinoService
 	statsSvc *services.StatsService
+	authSvc  *auth.Service
 	version  string
 }
 
 // New cria a interface web com o handler da API (montado em main), os
-// serviços de hinos e estatísticas, e a versão da aplicação (exibida no
-// rodapé das páginas). O handler da API é delegado para "/" — ou seja, toda
-// requisição sem rota web específica cai na API REST.
-func New(apiHandler http.Handler, hinoSvc *services.HinoService, statsSvc *services.StatsService, version string) *Web {
+// serviços de hinos e estatísticas, o serviço de autenticação e a versão da
+// aplicação (exibida no rodapé das páginas). O handler da API é delegado para
+// "/" — ou seja, toda requisição sem rota web específica cai na API REST.
+func New(apiHandler http.Handler, hinoSvc *services.HinoService, statsSvc *services.StatsService, authSvc *auth.Service, version string) *Web {
 	return &Web{
 		api:      apiHandler,
 		hinoSvc:  hinoSvc,
 		statsSvc: statsSvc,
+		authSvc:  authSvc,
 		version:  version,
 	}
 }
@@ -61,13 +64,68 @@ func (w *Web) Routes() http.Handler {
 	if w.api != nil {
 		mux.Handle("/", w.api)
 	}
+	// "{$}" casa apenas o caminho exato "/", redirecionando a raiz para a
+	// página principal sem capturar as demais rotas (que seguem para a API).
+	mux.HandleFunc("GET /{$}", w.handleRaiz)
+	mux.HandleFunc("GET /login", w.handleLoginPage)
+	mux.HandleFunc("POST /login", w.handleLogin)
+	mux.HandleFunc("POST /logout", w.handleLogout)
 	mux.HandleFunc("GET /stats", w.handleStatsPage)
 	mux.HandleFunc("GET /slides", w.handleSlidesPage)
 	mux.HandleFunc("GET /web/hinos/{codigo}/{numero}/editar", w.handleEditarHinoPage)
 	mux.HandleFunc("POST /web/hinos/{codigo}/{numero}", w.handleSalvarHino)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("internal/web/static"))))
 
-	return mux
+	// O middleware de autenticação envolve o mux inteiro: as rotas públicas
+	// (/login, /api/healthz, /static/) passam direto; as demais exigem sessão.
+	return w.authSvc.Middleware(mux)
+}
+
+// handleRaiz redireciona a raiz para a página principal da aplicação
+// (/slides). É o destino do logo no cabeçalho e do redirecionamento pós-login.
+func (w *Web) handleRaiz(wr http.ResponseWriter, r *http.Request) {
+	http.Redirect(wr, r, "/slides", http.StatusFound)
+}
+
+// handleLoginPage serve o formulário de login. Se o usuário já está
+// autenticado (ou a autenticação está desligada), redireciona para /slides.
+func (w *Web) handleLoginPage(wr http.ResponseWriter, r *http.Request) {
+	if w.authSvc.Authenticated(r) {
+		http.Redirect(wr, r, "/slides", http.StatusSeeOther)
+		return
+	}
+
+	if err := templates.LoginPage("", w.version).Render(r.Context(), wr); err != nil {
+		slog.Error("renderizar página de login", "erro", err)
+	}
+}
+
+// handleLogin valida a senha única e, em caso de sucesso, emite o cookie de
+// sessão e redireciona para a página principal (/slides). A mesma mensagem de
+// erro é usada para qualquer falha (sem enumeração).
+func (w *Web) handleLogin(wr http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(wr, "formulário inválido", http.StatusBadRequest)
+		return
+	}
+
+	if !w.authSvc.Check(r.FormValue("senha")) {
+		slog.Warn("tentativa de login falhou", "ip", r.RemoteAddr)
+		wr.WriteHeader(http.StatusUnauthorized)
+		if err := templates.LoginPage("Senha incorreta.", w.version).Render(r.Context(), wr); err != nil {
+			slog.Error("renderizar página de login", "erro", err)
+		}
+		return
+	}
+
+	w.authSvc.SetSession(wr)
+	http.Redirect(wr, r, "/slides", http.StatusSeeOther)
+}
+
+// handleLogout limpa o cookie de sessão e redireciona para o login.
+func (w *Web) handleLogout(wr http.ResponseWriter, r *http.Request) {
+	w.authSvc.ClearSession(wr)
+	http.Redirect(wr, r, "/login", http.StatusSeeOther)
 }
 
 // handleStatsPage serve a página completa de estatísticas, com a tabela de
@@ -80,7 +138,7 @@ func (w *Web) handleStatsPage(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := templates.StatsPage(stats, w.version).Render(r.Context(), wr); err != nil {
+	if err := templates.StatsPage(stats, w.version, w.authSvc.Enabled()).Render(r.Context(), wr); err != nil {
 		slog.Error("renderizar página de estatísticas", "erro", err)
 	}
 }
@@ -111,7 +169,7 @@ func (w *Web) handleSlidesPage(wr http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := templates.SlidesPage(coletaneas, hinos, codigo, w.version).Render(r.Context(), wr); err != nil {
+	if err := templates.SlidesPage(coletaneas, hinos, codigo, w.version, w.authSvc.Enabled()).Render(r.Context(), wr); err != nil {
 		slog.Error("renderizar página de geração de slides", "erro", err)
 	}
 }
@@ -137,7 +195,7 @@ func (w *Web) handleEditarHinoPage(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := templates.EditarHinoPage(*hino, codigo, w.version).Render(r.Context(), wr); err != nil {
+	if err := templates.EditarHinoPage(*hino, codigo, w.version, w.authSvc.Enabled()).Render(r.Context(), wr); err != nil {
 		slog.Error("renderizar formulário de edição", "coletanea", codigo, "numero", numero, "erro", err)
 	}
 }

@@ -19,9 +19,10 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 // Layout monta a página HTML completa ao redor de um conteúdo específico.
-// title é usado no <title>; version é exibida no rodapé; children é o
-// componente a ser renderizado no main.
-func Layout(title string, version string, children templ.Component) templ.Component {
+// title é usado no <title>; version é exibida no rodapé; autenticado indica
+// se o botão "Sair" deve aparecer no cabeçalho; children é o componente a ser
+// renderizado no main.
+func Layout(title string, version string, autenticado bool, children templ.Component) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -49,13 +50,23 @@ func Layout(title string, version string, children templ.Component) templ.Compon
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout.templ`, Line: 17, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout.templ`, Line: 18, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/static/main.css?v=4\"></head><body class=\"min-h-screen bg-slate-100 text-slate-900 antialiased\"><header class=\"border-b border-slate-200 bg-white\"><div class=\"mx-auto flex max-w-5xl items-center gap-4 px-4 py-3\"><a href=\"/\" class=\"flex items-center gap-2\"><img src=\"/static/logo.png\" alt=\"Louvores\" class=\"h-11 w-auto object-contain\"> <span class=\"text-xl font-bold text-indigo-700\">Louvores</span></a><nav class=\"flex gap-4 text-sm text-slate-600\"><a href=\"/stats\" class=\"hover:text-indigo-700\">Estatísticas</a> <a href=\"/slides\" class=\"hover:text-indigo-700\">Slides</a></nav></div></header><main class=\"mx-auto max-w-5xl px-4 py-8\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/static/main.css?v=4\"></head><body class=\"min-h-screen bg-slate-100 text-slate-900 antialiased\"><header class=\"border-b border-slate-200 bg-white\"><div class=\"mx-auto flex max-w-5xl items-center gap-4 px-4 py-3\"><a href=\"/\" class=\"flex items-center gap-2\"><img src=\"/static/logo.png\" alt=\"Louvores\" class=\"h-11 w-auto object-contain\"> <span class=\"text-xl font-bold text-indigo-700\">Louvores</span></a><nav class=\"flex items-center gap-4 text-sm text-slate-600\"><a href=\"/stats\" class=\"hover:text-indigo-700\">Estatísticas</a> <a href=\"/slides\" class=\"hover:text-indigo-700\">Slides</a> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if autenticado {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<form method=\"post\" action=\"/logout\"><button type=\"submit\" class=\"text-slate-400 hover:text-indigo-700\">Sair</button></form>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</nav></div></header><main class=\"mx-auto max-w-5xl px-4 py-8\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -63,20 +74,20 @@ func Layout(title string, version string, children templ.Component) templ.Compon
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</main><footer class=\"mx-auto max-w-5xl px-4 py-6 text-center text-xs text-slate-400\">Louvores · interface web sobre a API <span class=\"mt-1 block text-[11px]\">v")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</main><footer class=\"mx-auto max-w-5xl px-4 py-6 text-center text-xs text-slate-400\">Louvores · interface web sobre a API <span class=\"mt-1 block text-[11px]\">v")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(version)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout.templ`, Line: 38, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout.templ`, Line: 44, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</span></footer></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</span></footer></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

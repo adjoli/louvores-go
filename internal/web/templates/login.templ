@@ -1,0 +1,47 @@
+// login.templ — página de autenticação (senha única compartilhada).
+//
+// Servida em /login. O formulário envia a senha via POST /login; em caso de
+// erro, a página é re-renderizada com a mensagem. A página não exibe o botão
+// de logout no cabeçalho (usuário ainda não autenticado).
+package templates
+
+// LoginPage renderiza a tela de login com uma mensagem de erro opcional.
+// version é exibida no rodapé.
+templ LoginPage(erro string, version string) {
+	@Layout("Entrar · Louvores", version, false, loginForm(erro))
+}
+
+// loginForm monta o formulário de senha.
+templ loginForm(erro string) {
+	<div class="mx-auto max-w-sm">
+		<h1 class="mb-6 text-2xl font-bold text-slate-800">Entrar</h1>
+
+		if erro != "" {
+			<p class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">
+				{ erro }
+			</p>
+		}
+
+		<form method="post" action="/login" class="space-y-4">
+			<div>
+				<label for="senha" class="mb-1 block text-sm font-medium text-slate-700">Senha</label>
+				<input
+					id="senha"
+					name="senha"
+					type="password"
+					required
+					autofocus
+					autocomplete="current-password"
+					class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
+				>
+			</div>
+
+			<button
+				type="submit"
+				class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+			>
+				Entrar
+			</button>
+		</form>
+	</div>
+}

@@ -7,7 +7,10 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/adjoli/louvores-go/internal/auth"
+	"github.com/adjoli/louvores-go/internal/config"
 	"github.com/adjoli/louvores-go/internal/database"
 	"github.com/adjoli/louvores-go/internal/models"
 	"github.com/adjoli/louvores-go/internal/repository"
@@ -26,6 +29,13 @@ const testVersion = "test-version"
 // Retorna também a conexão *sql.DB para testes que precisam inspecionar o
 // banco após uma escrita.
 func setupWeb(t *testing.T) (*Web, *sql.DB) {
+	t.Helper()
+	return setupWebComSenha(t, "")
+}
+
+// setupWebComSenha é a variação de setupWeb que ativa a autenticação com a
+// senha informada (string vazia = autenticação desligada).
+func setupWebComSenha(t *testing.T, senha string) (*Web, *sql.DB) {
 	t.Helper()
 
 	conn, err := database.Open(":memory:")
@@ -67,9 +77,15 @@ func setupWeb(t *testing.T) (*Web, *sql.DB) {
 	hinoSvc := services.NewHinoService(hinoRepo, coletaneaRepo, "data/templates/default.pptx")
 	statsSvc := services.NewStatsService(hinoRepo)
 
+	authSvc := auth.New(&config.Config{
+		AuthPassword:  senha,
+		SessionSecret: "test-secret",
+		SessionTTL:    time.Hour,
+	})
+
 	// O handler da API é opcional para os testes web; passamos nil, que o
 	// Routes() trata com delegação desativada.
-	return New(nil, hinoSvc, statsSvc, testVersion), conn
+	return New(nil, hinoSvc, statsSvc, authSvc, testVersion), conn
 }
 
 // TestStatsPage serve a página /stats com status 200 e conteúdo HTML,
@@ -121,7 +137,8 @@ func TestStatsPageVazio(t *testing.T) {
 	coletaneaRepo := repository.NewSQLiteColetaneaRepository(conn)
 	hinoSvc := services.NewHinoService(hinoRepo, coletaneaRepo, "")
 	statsSvc := services.NewStatsService(hinoRepo)
-	w := New(nil, hinoSvc, statsSvc, testVersion)
+	authSvc := auth.New(&config.Config{SessionSecret: "test-secret", SessionTTL: time.Hour})
+	w := New(nil, hinoSvc, statsSvc, authSvc, testVersion)
 
 	req := httptest.NewRequest("GET", "/stats", nil)
 	rec := httptest.NewRecorder()

@@ -10,6 +10,7 @@ Porte para Go da aplicação **Louvores** (geração de slides PPTX de hinos). O
 - **Interface web**: `templ` (templates tipados), servidas como HTML completo já com os dados embutidos no render (sem HTMX). Estilos em `internal/web/static/main.css`, **mantido manualmente** (sem build de CSS). As views ficam em `internal/web/`. Os arquivos `_templ.go` gerados são commitados.
 - **DB**: SQLite via `database/sql` + `modernc.org/sqlite` (100% Go, sem CGO) por padrão; alternativamente Turso na nuvem via `github.com/tursodatabase/libsql-client-go/libsql` (puro Go, protocolo libSQL sobre HTTP/WebSocket), ativado por `TURSO_DATABASE_URL`. Testes usam `:memory:`.
 - **PPTX**: geração própria sobre o pacote OOXML (`archive/zip` + `encoding/xml`), preservando o template byte-a-byte e registrando os slides novos de forma consistente (`[Content_Types].xml`, `.rels`, `sldIdLst`). `github.com/baliance/gooxml` (AGPL-3.0) é usado **somente como validador nos testes** (`presentation.Open`); o código de produção não o importa.
+- **Auth**: senha única compartilhada (`AUTH_PASSWORD`) + sessão em cookie assinado com HMAC-SHA256 (`SESSION_SECRET`), via `internal/auth` — sem banco de usuários. Middleware protege todas as rotas, exceto `/login`, `/api/healthz` e `/static/`.
 - **Config**: `joho/godotenv` + env vars com defaults.
 - **Logging**: `log/slog` → `logs/app.log` + console (nível INFO).
 
@@ -58,6 +59,10 @@ Interface web (HTML via templ, servida no mesmo binário):
 
 | Método | Rota | Descrição |
 |---|---|---|
+| `GET` | `/` | redireciona (302) para `/slides` (destino do logo no cabeçalho) |
+| `GET` | `/login` | página de login (senha única) |
+| `POST` | `/login` | valida a senha, emite o cookie de sessão e redireciona (303) para `/slides` |
+| `POST` | `/logout` | invalida o cookie de sessão e redireciona (303) para `/login` |
 | `GET` | `/stats` | página de estatísticas (tabela embutida no HTML) |
 | `GET` | `/slides` | página de geração de slides (seletor de coletânea; `?codigo=` preenche a grade de hinos) |
 | `GET` | `/web/hinos/{codigo}/{numero}/editar` | formulário de edição do hino (título, letra, créditos, revisão) |
@@ -66,19 +71,21 @@ Interface web (HTML via templ, servida no mesmo binário):
 
 As rotas web são mais específicas que o `/` e, por isso, têm prioridade no
 mux raiz: a API é delegada para `/` e as páginas web para os caminhos acima.
-`main.go` combina ambos via `web.New(apiHandler, statsSvc, version)`. A rota
-`POST /web/hinos/{codigo}/{numero}` é o primeiro ponto de escrita da
+`main.go` combina ambos via `web.New(apiHandler, hinoSvc, statsSvc, authSvc, version)`.
+O mux inteiro é envolvido pelo middleware de autenticação (`internal/auth`).
+A rota `POST /web/hinos/{codigo}/{numero}` é o primeiro ponto de escrita da
 aplicação (os demais endpoints continuam somente leitura).
 
-Variáveis de ambiente (com defaults): `DB_PATH` (`data/hinos.db`), `TURSO_DATABASE_URL` (vazio = SQLite local), `TURSO_AUTH_TOKEN` (vazio; obrigatório quando a URL do Turso está definida), `TEMPLATE_PATH` (`data/templates/default.pptx`), `LOG_PATH` (`logs/app.log`), `HOST` (vazio = todas as interfaces), `PORT` (`8080`). `.env` opcional.
+Variáveis de ambiente (com defaults): `DB_PATH` (`data/hinos.db`), `TURSO_DATABASE_URL` (vazio = SQLite local), `TURSO_AUTH_TOKEN` (vazio; obrigatório quando a URL do Turso está definida), `TEMPLATE_PATH` (`data/templates/default.pptx`), `LOG_PATH` (`logs/app.log`), `HOST` (vazio = todas as interfaces), `PORT` (`8080`), `AUTH_PASSWORD` (vazio = auth desligada), `SESSION_SECRET` (vazio = chave aleatória em runtime), `COOKIE_SECURE` (`false`), `SESSION_TTL` (`24h`). `.env` opcional.
 
 ## Arquitetura
 
 ```
 cmd/louvores/main.go        Entrypoint: app.New → servidor HTTP + shutdown
 internal/
-  config/                   Paths + env (DB, TEMPLATE, LOG, HOST, PORT) + Addr()
+  config/                   Paths + env (DB, TEMPLATE, LOG, HOST, PORT, AUTH) + Addr()
   logging/                  slog → arquivo + console
+  auth/                     Senha única + sessão em cookie assinado (HMAC) + middleware
   database/
     db.go                   SQLite (database/sql + modernc) e Turso (libsql-client-go), DDL idempotente
   models/models.go          structs Coletanea, Hino
@@ -90,8 +97,8 @@ internal/
   api/                      Handlers HTTP finos → JSON; erros → 400/404/500
   version/                  Versão do binário (injetada via -ldflags, ver Makefile)
   web/
-    handler.go              Interface web: mux raiz (API em "/" + páginas/static)
-    templates/*.templ       Views templ (layout base + stats + slides + editar) → _templ.go gerado
+    handler.go              Interface web: mux raiz (API em "/" + páginas/static) + login/logout
+    templates/*.templ       Views templ (layout base + stats + slides + editar + login) → _templ.go gerado
     static/                 main.css (mantido manualmente, sem build) + logo/ícones PNG
   domain/slide_parts.go     TipoParte, ParteHino, SequenciaHino
   processors/lyrics_parser.go  Letra → estrofes/refrões (por indentação)
@@ -102,17 +109,18 @@ internal/
 
 Fluxo da API: HTTP (internal/api) → Services → Repository → SQLite (ou Turso, quando `TURSO_DATABASE_URL` está definida). Erros como valores (sentinelas `repository.ErrHinoNotFound`, `repository.ErrColetaneaNotFound`). Escrita (edição de hinos via interface web; geração de slides via download) ocorre sobre os mesmos serviços/repositórios.
 
-Fluxo da interface web: HTTP (internal/web) → Services (mesmos serviços da API, sem chamada HTTP interna) → Templates templ (HTML completo já com os dados). A página `/stats` renderiza a tabela de estatísticas embutida no HTML. A página `/slides` apresenta um seletor de coletânea; a seleção usa um formulário que faz `GET /slides?codigo=` e recarrega a página com a grade de hinos já renderizada. A edição de um hino segue o fluxo PRG (Post/Redirect/Get): `GET /web/hinos/{codigo}/{numero}/editar` renderiza o formulário e `POST /web/hinos/{codigo}/{numero}` persiste (via `HinoService.AtualizarHino`, que aplica Title Case na letra e mantém revisão irreversível) e redireciona (303) para `/slides`.
+Fluxo da interface web: HTTP (internal/web) → middleware de autenticação (internal/auth; libera `/login`, `/api/healthz` e `/static/`) → Services (mesmos serviços da API, sem chamada HTTP interna) → Templates templ (HTML completo já com os dados). A página `/stats` renderiza a tabela de estatísticas embutida no HTML. A página `/slides` apresenta um seletor de coletânea; a seleção usa um formulário que faz `GET /slides?codigo=` e recarrega a página com a grade de hinos já renderizada. A edição de um hino segue o fluxo PRG (Post/Redirect/Get): `GET /web/hinos/{codigo}/{numero}/editar` renderiza o formulário e `POST /web/hinos/{codigo}/{numero}` persiste (via `HinoService.AtualizarHino`, que aplica Title Case na letra e mantém revisão irreversível) e redireciona (303) para `/slides`.
 
 ## Convenções
 
 - **Chave de negócio**: coletânea + número (ex.: CC/42); IDs internos não são expostos nas rotas de navegação.
 - **Contrato JSON**: tags `snake_case` nos models/serviços; campos opcionais nulos serializados como `null` explícito (sem `omitempty`); `id`/`coletanea_id` visíveis como identificadores internos.
 - **Documentação da API**: spec em `internal/api/openapi.yaml` (OpenAPI 3.0.3) e página em `internal/api/docs.html`, ambos embutidos com `go:embed`; rotas declaradas em `API.rotas()` (fonte única usada por `Routes()`); teste de paridade garante spec ↔ mux sincronizados.
-- **Resposta de erro**: `{"error": "..."}`; 404 para sentinelas de não encontrado, 400 para parâmetro inválido, 500 genérico com detalhe só no log.
+- **Resposta de erro**: `{"error": "..."}`; 404 para sentinelas de não encontrado, 400 para parâmetro inválido, 401 para não autenticado (API), 500 genérico com detalhe só no log.
+- **Autenticação** (`internal/auth`): senha única em `AUTH_PASSWORD` comparada em tempo constante (`crypto/subtle`); `AUTH_PASSWORD` vazia desliga a auth (dev local). O cookie `louvores_sessao` é `HttpOnly`/`SameSite=Lax`, com `Secure` conforme `COOKIE_SECURE`, e carrega apenas a expiração assinada com HMAC-SHA256 (`SESSION_SECRET`; vazio = chave aleatória em runtime, sessões caem no restart). O middleware (`Service.Middleware`) protege tudo, exceto `/login`, `/api/healthz` e `/static/`: requisições a `/api/*` sem sessão → 401 JSON; demais → 303 para `/login`. `GET /` redireciona (302) para `/slides`; `GET /login` redireciona para `/slides` se já autenticado; `POST /login` valida e emite o cookie (303 → `/slides`); `POST /logout` limpa o cookie.
 - **Estatísticas** (`services.stats_service.go`): `percentual` = hinos com letra ÷ total × 100; `percentual_revisados` = hinos revisados ÷ hinos com letra × 100. Ambos `0.0` quando o denominador é zero.
 - **Detecção de refrão**: todas as linhas do bloco começam com espaço/tab → refrão (indentação removida); senão → estrofe.
-- **Interface web**: views `templ` em `internal/web/templates`; o `Layout(title, version, children)` é o esqueleto HTML base (classes utilitárias definidas em `main.css`); a `version` é exibida no rodapé (`v{version}`). As páginas são servidas como HTML completo, já com os dados embutidos no render (sem HTMX). Os arquivos gerados (`_templ.go`) são commitados; para regenerá-los use `templ generate ./...`. O `main.css` é mantido manualmente.
+- **Interface web**: views `templ` em `internal/web/templates`; o `Layout(title, version, autenticado, children)` é o esqueleto HTML base (classes utilitárias definidas em `main.css`); a `version` é exibida no rodapé (`v{version}`) e `autenticado` controla o botão "Sair" no cabeçalho. As páginas são servidas como HTML completo, já com os dados embutidos no render (sem HTMX). Os arquivos gerados (`_templ.go`) são commitados; para regenerá-los use `templ generate ./...`. O `main.css` é mantido manualmente.
 - **Versão** (`internal/version`): variáveis `Version`/`Commit`/`Date` injetadas via `-ldflags -X` no `make build`; `String()` formata (com ou sem commit/data). A versão flui de `main.go` → `web.New` → `Layout` (rodapé).
 - **Cards de hinos** (`slides.templ`): exibidos em grade responsiva de até 8 colunas em telas largas (`grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8`); `auto-rows-fr` + `h-full` no card garantem **altura uniforme** entre linhas. Cada card tem conteúdo **centralizado** (`items-center text-center`), mostra numeração em destaque (`%03d`, fonte maior que o título) e o título na linha abaixo. No **rodapé do card** (linha `mt-auto flex items-center justify-center`, empurrada para a base), há os ícones de ação: `edit.png` (edição, sempre visível, aponta para `/web/hinos/{codigo}/{numero}/editar`) e `ppt.png` (gerar slide, apenas hinos revisados) — ambos em `internal/web/static/`, servidos em `/static/`, com `aria-label`. O `ppt.png` aponta para `/api/coletaneas/{codigo}/hinos/{numero}/slides`. Cor de fundo por estado do hino — sem letra `#FFB7B2`, letra não revisada `#FFF5BA`, revisado `#B5EAD7` — aplicada via `style` inline (cores fora do palette padrão, por isso inline).
 - **Edição de hinos** (`editar.templ` + `HinoService.AtualizarHino`): formulário com título, letra (textarea), créditos e checkbox "revisado". Número e coletânea vêm da rota (não editáveis). A letra é convertida para Title Case antes de salvar (`titularLetra`, preservando indentação de refrões e texto já em caixa mista). Revisão é **irreversível**: se o hino já é revisado, o checkbox fica `disabled` e o serviço mantém `Revisado=true` mesmo se o formulário o enviar desmarcado. Uso de `templ.Component` + render via `Render(ctx, w)`; o POST segue PRG (303 → `/slides`).

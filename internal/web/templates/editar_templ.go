@@ -31,7 +31,7 @@ import (
 // EditarHinoPage renderiza a página com o formulário de edição do hino,
 // exibindo a coletânea e a numeração como informação (não editáveis).
 // version é exibida no rodapé.
-func EditarHinoPage(hino models.Hino, codigo string, version string) templ.Component {
+func EditarHinoPage(hino models.Hino, codigo string, version string, autenticado bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -52,7 +52,7 @@ func EditarHinoPage(hino models.Hino, codigo string, version string) templ.Compo
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout("Editar Hino · Louvores", version, editarForm(hino, codigo)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Editar Hino · Louvores", version, autenticado, editarForm(hino, codigo)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

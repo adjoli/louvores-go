@@ -14,11 +14,17 @@ info:
 servers:
   - url: http://localhost:8080
 
+# Com AUTH_PASSWORD definida, todas as rotas /api/* exigem o cookie de sessão
+# (exceto /api/healthz, que sobrescreve com security: []).
+security:
+  - sessaoCookie: []
+
 paths:
   /api/healthz:
     get:
       summary: Liveness do serviço.
       operationId: healthz
+      security: []
       responses:
         '200':
           description: Serviço operacional.
@@ -40,6 +46,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Coletanea'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
         '500':
           $ref: '#/components/responses/ErroInterno'
 
@@ -64,6 +72,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
         '500':
           $ref: '#/components/responses/ErroInterno'
 
@@ -109,6 +119,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
         '500':
           $ref: '#/components/responses/ErroInterno'
 
@@ -164,6 +176,8 @@ paths:
                 $ref: '#/components/schemas/Erro'
               example:
                 error: hino não revisado (slides só podem ser gerados para hinos revisados)
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
         '500':
           $ref: '#/components/responses/ErroInterno'
 
@@ -197,6 +211,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
         '500':
           $ref: '#/components/responses/ErroInterno'
 
@@ -213,6 +229,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/StatsColetanea'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
         '500':
           $ref: '#/components/responses/ErroInterno'
 
@@ -227,6 +245,8 @@ paths:
             application/yaml:
               schema:
                 type: string
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
 
   /api/docs:
     get:
@@ -239,8 +259,19 @@ paths:
             text/html:
               schema:
                 type: string
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
 
 components:
+  securitySchemes:
+    sessaoCookie:
+      type: apiKey
+      in: cookie
+      name: louvores_sessao
+      description: |
+        Cookie de sessão emitido por POST /login (senha única). Quando
+        AUTH_PASSWORD não está definida, a autenticação fica desligada.
+
   parameters:
     CodigoColetanea:
       name: codigo
@@ -258,6 +289,14 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Erro'
+    NaoAutenticado:
+      description: Sessão ausente ou inválida (quando AUTH_PASSWORD está definida).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            error: não autenticado
 
   schemas:
     Health:
