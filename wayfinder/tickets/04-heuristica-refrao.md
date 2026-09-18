@@ -1,4 +1,4 @@
-# Heurística de refrão e junção de estrofes
+# Heurística de refrão (detecção)
 
 - Tipo: `wayfinder:grilling` (HITL — Mateus + Adão)
 - Estado: aberto, não atribuído (bloqueado)
@@ -6,30 +6,30 @@
 
 ## Question
 
-Como transformar slides legados (sem tags, com refrão repetido e estrofes
-quebradas em 2+ slides) na letra canônica: qual bloco repetido vira refrão
-indentado, quando repetir o refrão no banco vs uma única vez, e como
-rejuntar estrofes divididas?
+Qual bloco repetido vira refrão: limiar de repetição e normalização de
+comparação para eleger o refrão candidato a partir dos slides legados?
 
 ## Contexto
 
 - Dúvida original do Mateus: "o refrão se repete depois da estrofe, mas não
   é obrigatório em muitas músicas; lendo o arquivo sem delimitação, como
-  descobrir qual estrofe se repete para dentá-la diferente? Muitas estrofes
-  são divididas entre mais de um slide."
+  descobrir qual estrofe se repete para dentá-la diferente?"
 - Restrição: refrão no banco = bloco com TODAS as linhas indentadas
-  (espaço/tab); `titularLetra` preserva indentação; revisão é irreversível.
+  (espaço/tab); `titularLetra` preserva indentação.
 - Casos concretos da evidência: `A Sua imagem` (bloco de 8 linhas ×4 = refrão
   quase certo), `33 Nasceu Jesus` (bloco de 6 linhas ×2 no fim), `Salmo 46`
   (tudo se repete — é estrutura da música ou duplicação de slides?),
-  `01.Antífona` (4 estrofes distintas, sem repetição — sem refrão?).
+  `01.Antífona` (4 estrofes distintas, sem repetição — sem refrão?),
+  `121 É Natal` (rodapé `É NATAL DE CRISTO` concatenado — não é refrão).
+- O que fazer COM o refrão eleito (rejuntar estrofes partidas, gravar 1× ou
+  N×, papel de LLM) vive em [Junção, armazenamento e papel do LLM](09-juncao-armazenamento-llm.md), não aqui.
 
 ## Feito quando
 
 - [ ] Grilling com Mateus/Adão trava: (a) limiar de repetição (ex. bloco
-      idêntico ≥2× após normalizar caixa/espaço = refrão candidato),
-      (b) refrão gravado 1× ou N× no banco, (c) regra de junção (slides
-      curtos consecutivos não-repetidos = mesma estrofe?), (d) papel de LLM
-      (só classificar candidato, nunca gerar letra) — ou "sem LLM"
-- [ ] Resposta registra as 4 decisões + exemplos antes/depois com 2 hinos
-      da evidência
+      idêntico ≥2× = refrão candidato), (b) normalização antes de comparar
+      (caixa, espaços, pontuação, rodapés `N/M` e `IBRECEM` descartados),
+      (c) desempate quando há 2+ candidatos ou zero (ex. `Salmo 46`,
+      `Antífona`)
+- [ ] Resposta registra a regra de detecção + como cada um dos 4 casos da
+      evidência é classificado

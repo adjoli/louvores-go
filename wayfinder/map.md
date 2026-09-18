@@ -31,10 +31,9 @@ ferramentas, importação segura), pronto para execução.
 <!-- fog: dentro do escopo, mas ainda sem nitidez para virar ticket -->
 
 - Volume total real no Drive/NOVA IDENTIDADE (quantos PPT/PPT por coletânea, duplicatas, quantos já têm letra no banco vs erro de extração vs nunca cantados) — depende do [Inventário do corpus legado](tickets/01-inventario-corpus.md).
-- Se LLM entra em alguma etapa (ex. só classificar refrão candidato, nunca gerar letra do zero) e com qual guardrail — amadurece após [Heurística de refrão e junção de estrofes](tickets/04-heuristica-refrao.md).
-- Ferramenta de extração `.ppt` binário (OLE): LibreOffice headless vs `olefile` vs pular e tratar manualmente — amadurece após [Padrões reais dos PPTs legados](tickets/03-padroes-ppts.md).
-- Quem revisa o quê e em qual UI (planilha, md no git privado, página web temporária) — amadurece após [Formato intermediário de revisão](tickets/05-formato-revisao.md).
-- Comando final de importação (`sql` em batch, `csv`, `go run ./cmd/importar`?) e política upsert (pular existentes com letra? sobrescrever só `revisado=false`?) — amadurece após [Desenho da pipeline](tickets/06-desenho-pipeline.md).
+- Se LLM entra em alguma etapa (ex. só classificar refrão candidato, nunca gerar letra do zero) e com qual guardrail — amadurece após [Heurística de refrão (detecção)](tickets/04-heuristica-refrao.md) + [Junção, armazenamento e papel do LLM](tickets/09-juncao-armazenamento-llm.md).
+- Quem revisa o quê e em qual UI (planilha, arquivo local temporário, página web temporária) — amadurece após [Formato intermediário de revisão](tickets/05-formato-revisao.md).
+- Comando final de importação (`sql` em batch, `csv`, `go run ./cmd/importar`?) e política upsert (pular existentes com letra? sobrescrever só `revisado=false`?) — amadurece após [Desenho da pipeline ETL](tickets/06-desenho-pipeline.md).
 
 ## Out of scope
 

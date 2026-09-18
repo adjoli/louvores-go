@@ -18,13 +18,15 @@ ou página temporária — e onde ele vive?
   direto); Adão: "baixar o arquivo e trabalhar localmente"; Mateus propôs
   `hinos/<hinario>/*.md` + git (overkill, fora de escopo — banco segue fonte).
 - Revisores: Jônatas/Gabriel passam o olho letra a letra vs hinário; louvor
-  valida o cantado; atenção a direitos autorais (repo precisaria ser privado
-  se versionar letras) e à busca por palavra-chave (motivo do banco).
+  valida o cantado. O artefato de revisão é **temporário e não versionado**
+  (pasta local, Drive ou página temporária) — versionar letras em git (repo
+  privado por direitos autorais) está fora de escopo, ver mapa. Atenção à
+  busca por palavra-chave (motivo do banco seguir como fonte).
 
 ## Feito quando
 
 - [ ] Grilling trava: colunas/campos do artefato (código, número, título,
       letra já em Title Case + refrão indentado, créditos, flag revisado),
-      local (pasta local? git privado? Drive?), e critério de "pronto para
-      importar" (quem dá o OK por hino)
+      local (**pasta local, Drive ou página temporária — sem git**), e
+      critério de "pronto para importar" (quem dá o OK por hino)
 - [ ] Resposta registra o formato escolhido + modelo de 1 hino revisado

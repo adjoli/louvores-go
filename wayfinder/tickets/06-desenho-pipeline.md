@@ -2,7 +2,7 @@
 
 - Tipo: `wayfinder:prototype` (HITL — artefato barato para reagir)
 - Estado: aberto, não atribuído (bloqueado)
-- Bloqueado por: [Heurística de refrão e junção de estrofes](04-heuristica-refrao.md), [Formato intermediário de revisão](05-formato-revisao.md)
+- Bloqueado por: [Inventário do corpus legado](01-inventario-corpus.md), [Heurística de refrão (detecção)](04-heuristica-refrao.md), [Junção, armazenamento e papel do LLM](09-juncao-armazenamento-llm.md), [Formato intermediário de revisão](05-formato-revisao.md), [Extração dos .ppt binários (OLE)](08-extracao-ppt-ole.md)
 
 ## Question
 
@@ -12,14 +12,16 @@ linguagem/ferramentas, onde roda, e como cada etapa é reproduzível?
 ## Contexto
 
 - Entrada: Drive/NOVA IDENTIDADE (`.pptx` + `.ppt` OLE) +
-  [Inventário do corpus legado](01-inventario-corpus.md).
+  [Inventário do corpus legado](01-inventario-corpus.md) (o volume por
+  formato decide o tratamento dos `.ppt`: conversor automático vs triagem
+  manual, ver [Extração dos .ppt binários](08-extracao-ppt-ole.md)).
 - Normalização usa [Formato esperado pelo banco](02-formato-esperado.md) +
-  heurística do [Heurística de refrão](04-heuristica-refrao.md); saída da
-  revisão usa [Formato intermediário](05-formato-revisao.md).
+  detecção do [Heurística de refrão](04-heuristica-refrao.md) +
+  reconstrução do [Junção, armazenamento e papel do LLM](09-juncao-armazenamento-llm.md);
+  saída da revisão usa [Formato intermediário](05-formato-revisao.md).
 - Restrições: código prod não importa `gooxml` (só validador em testes);
   `main.css`/`templ` irrelevantes; sem CGO (preferir `archive/zip` +
-  `encoding/xml` em Go ou script Python com `zipfile`); `.ppt` OLE precisa de
-  conversor (LibreOffice headless?) ou triagem manual.
+  `encoding/xml` em Go ou script Python com `zipfile`).
 
 ## Feito quando
 

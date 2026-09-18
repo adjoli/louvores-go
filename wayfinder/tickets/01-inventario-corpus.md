@@ -23,7 +23,11 @@ erro de extração no banco de produção?
 
 - [ ] Listagem `corpus.csv` (arquivo, coletânea, número, título, bytes, `ppt|pptx`)
       cobrindo o Drive inteiro, salva em `wayfinder/evidencia/`
-- [ ] Cruzamento com `GET /api/stats` do prod (total/com_letra/revisados por
-      coletânea) — quantos faltam por coletânea
-- [ ] Resposta registrada como comentário de resolução: contagens + onde está
-      o `corpus.csv` + quantos `.ppt` OLE precisam de conversão
+- [ ] Cruzamento **por hino** (chave de negócio coletânea+número, ex. `CC/42`):
+      cada linha do `corpus.csv` classificada contra o banco em
+      `com-letra` / `sem-letra` / `erro-extracao` / `nao-cantado`
+      (sem slides nas pastas). `GET /api/stats` **não basta** — só devolve
+      agregados por coletânea, sem dizer quais hinos faltam
+- [ ] Resposta registrada como comentário de resolução: contagens por
+      coletânea e por status + onde está o `corpus.csv` + quantos `.ppt` OLE
+      precisam de conversão
