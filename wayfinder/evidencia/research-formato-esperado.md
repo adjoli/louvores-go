@@ -25,9 +25,9 @@ Refrão = TODAS as linhas com espaço/tab (`lyrics_parser.go:78-85`); indentaç�
 - Title Case no save (`AtualizarHino:128`, `titularLetra:356-374`): por linha, só se `trimmed` todo-lower OU todo-upper; caixa mista preservada; indentação preservada; brancas puladas.
 - Slides: `textosSlides (:312-325)` — não-`COR`: subtítulo `"Nome - numero"`, topo `"NUMCOD - Titulo"`; `COR`: subtítulo vazio, título original. Arquivo (:270-276): `{CODIGO}-{NUM:03d}-{TITULO_UPPER_UNDERLINES}.pptx`. Parte `Numero` 1-based (`lyrics_parser.go:46-68`); rodapé `N/total` (`slide_parts.go:18-20`).
 
-**5. O que impede geração**:
-- `geraSlidesHino (:246-251)`: `!Revisado` → `ErrHinoNotReviewed`; `Numeracao==nil` → erro. Inexistente → `ErrColetaneaNotFound/ErrHinoNotFound`.
-- Lote (:207-220): pula em `Pulados` se `!Revisado || Letra==nil || Numeracao==nil`; erro individual logado, sem abortar ZIP.
+**5. O que impede geração** (unitário vs lote — distintos):
+- Unitário `geraSlidesHino (:246-251)`: `!Revisado` → `ErrHinoNotReviewed`; `Numeracao==nil` → erro. **Letra nil NÃO bloqueia**: vira `""` → `ProcessarHino("")` → sequência vazia → `GenerateSlides` gera PPTX só com o slide de título, sem erro (não há guarda de sequência vazia em `ppt_generator.go:61`).
+- Lote `GerarSlidesColetanea (:207-220)`: pula e conta em `Pulados` se `!Revisado || Letra==nil || Numeracao==nil`; erro individual é logado (`slog.Error`) e vira `Pulados`, sem abortar o ZIP.
 - Revisão irreversível (`:133-135`): `Revisado==true` ignora `false` posterior.
 
 **6. Stats** — `stats_service.go:37-49`: `percentual = ComLetra/Total*100` (`0.0` se `Total==0`); `percentual_revisados = Revisados/ComLetra*100` (`0.0` se `ComLetra==0`).

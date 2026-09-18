@@ -2,7 +2,7 @@
 
 - Tipo: `wayfinder:grilling` (HITL — Mateus + Jônatas + Gabriel + louvor)
 - Estado: aberto, não atribuído (bloqueado)
-- Bloqueado por: [Formato esperado pelo banco](02-formato-esperado.md)
+- Bloqueado por: [Formato esperado pelo banco](02-formato-esperado.md), [Junção, armazenamento e papel do LLM](09-juncao-armazenamento-llm.md)
 
 ## Question
 
@@ -27,6 +27,8 @@ ou página temporária — e onde ele vive?
 
 - [ ] Grilling trava: colunas/campos do artefato (código, número, título,
       letra já em Title Case + refrão indentado, créditos, flag revisado),
-      local (**pasta local, Drive ou página temporária — sem git**), e
-      critério de "pronto para importar" (quem dá o OK por hino)
+      local (preferir pasta local ou Drive; página web temporária só como
+      fallback com dono explícito — o middleware protege tudo exceto
+      `/login`, `/api/healthz` e `/static/`), e critério de "pronto para
+      importar" (quem dá o OK por hino)
 - [ ] Resposta registra o formato escolhido + modelo de 1 hino revisado

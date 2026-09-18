@@ -26,7 +26,8 @@ algum) um LLM tem nisso?
 
 ## Feito quando
 
-- [ ] Grilling trava: (a) regra de junção, (b) refrão 1× ou N× no banco,
-      (c) sem-LLM vs LLM-classificador com guardrail explícito
+- [ ] Grilling trava, nesta ordem (junção→armazenamento→LLM): (a) regra de
+      junção, (b) refrão 1× ou N× no banco, (c) sem-LLM vs
+      LLM-classificador com guardrail explícito
 - [ ] Resposta registra as 3 decisões + exemplo antes/depois com 2 hinos
       da evidência

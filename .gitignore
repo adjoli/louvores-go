@@ -17,6 +17,9 @@ docs/
 output/
 logs/
 
+# Corpus de slides legados (entrada da ETL — binários grandes, locais)
+corpus/
+
 # Ambiente
 .env
 .vscode

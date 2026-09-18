@@ -2,7 +2,7 @@
 
 - Tipo: `wayfinder:research` (AFK)
 - Estado: aberto, não atribuído (bloqueado)
-- Bloqueado por: [Padrões reais dos PPTs legados](03-padroes-ppts.md)
+- Bloqueado por: [Padrões reais dos PPTs legados](03-padroes-ppts.md), [Inventário do corpus legado](01-inventario-corpus.md)
 
 ## Question
 

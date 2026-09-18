@@ -27,4 +27,6 @@ Title Case, blocos e regra estrofe/refrão?
 - [ ] Subagente de research leu os 4 arquivos acima + `internal/domain/slide_parts.go`
 - [ ] Resposta registra: DDL, exemplo canônico de letra (estrofe + refrão
       indentado + linha em branco), o que zera `percentual` em stats, e o que
-      impede geração (sem `revisado`, sem `numeracao`, sem `letra`)
+      impede geração — distinguindo unitário (só `!revisado` e sem
+      `numeracao`; letra nil gera PPTX só-título sem erro) de lote
+      (pula `!revisado`, letra nil e sem `numeracao`)
