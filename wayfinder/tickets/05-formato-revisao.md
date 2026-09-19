@@ -26,6 +26,14 @@ ou página temporária — e onde ele vive?
   primeiro lugar (Google Sheets/Excel, uma linha por hino, colunas de
   decisão simples); nada de git, terminal ou CSV cru como interface
   principal.
+- Decisão assentada (Mateus, 09/2026): revisão no **Google Sheets**
+  (colaborativo). A planilha leva **todos os slides**, com a letra
+  integral editável (correção direto na célula, sem coluna de comentário),
+  ordenada por **pasta de origem** (coluna `pasta` no CSV). Status:
+  `IMPORTADO` (letra já no banco), `PENDENTE` (falta revisar/importar),
+  `IGNORAR` (versão antiga). Arquivo: `corpus/revisao.csv` (gitignored,
+  2282 linhas: pasta, arquivo, hinario, numero, titulo, letra, status,
+  observacao).
 
 ## Feito quando
 
