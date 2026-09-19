@@ -47,7 +47,9 @@ aqui só se decide o COMO.)
       (c) validação: **gerar e verificar os slides de TODOS os hinos
       alterados** (PPTX abre sem reparo, `TestGeneratedPackageIntegrity`
       verde), cada skip do lote justificado — contagem + amostra não basta,
-      (d) comando com `--dry-run` e exigência de backup prévio documentado.
+      (d) comando com `--dry-run` **obrigatório** mostrando novos vs
+      modificados vs pulados, global e por coletânea, e exigência de
+      backup prévio documentado.
       São 4 sub-decisões numa sessão: timeboxar; se travar, pré-dividir
       (a+b numa, c+d noutra)
 - [ ] Resposta registra as 4 regras — aí o mapa está pronto para execução

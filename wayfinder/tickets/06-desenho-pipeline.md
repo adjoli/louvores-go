@@ -26,6 +26,14 @@ linguagem/ferramentas, onde roda, e como cada etapa é reproduzível?
   uma pasta de `pptx`/`ppt`) — **não modifica** `internal/ppt`,
   `processors`, `services` nem o template. Ela termina no artefato de
   revisão/importação; a geração de slides continua intacta.
+- Interface assentada (Mateus, 09/2026): **CLI em Go com TUI `pterm`**
+  (só para o operador): `DefaultInteractiveSelect` (menu),
+  `DefaultInteractiveTextInput` (path do input), `DefaultProgressbar`
+  (progresso do import). Comandos: `extrair` (pasta → txt + corpus.csv),
+  `revisao-pack` (gera pacote de revisão), `importar --csv` (planilha
+  revisada → banco, `.env` decide dev vs prod). **Dry-run obrigatório**
+  antes de qualquer escrita, mostrando novos vs modificados vs pulados,
+  global e por coletânea.
 - Match em estágios (codex, sessão ETL): número → título exato →
   similaridade (tokens/refrão) só como `candidato` para revisão humana
   (candidato único acima do limiar E com margem; nunca autoaceito em

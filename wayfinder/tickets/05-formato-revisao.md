@@ -22,6 +22,10 @@ ou página temporária — e onde ele vive?
   (pasta local, Drive ou página temporária) — versionar letras em git (repo
   privado por direitos autorais) está fora de escopo, ver mapa. Atenção à
   busca por palavra-chave (motivo do banco seguir como fonte).
+- Formato tem que servir a **não-técnicos** (ver mapa): planilha em
+  primeiro lugar (Google Sheets/Excel, uma linha por hino, colunas de
+  decisão simples); nada de git, terminal ou CSV cru como interface
+  principal.
 
 ## Feito quando
 
