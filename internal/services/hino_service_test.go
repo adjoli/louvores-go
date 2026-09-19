@@ -316,8 +316,8 @@ func TestTitularLetra(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := titularLetra(tt.in); got != tt.want {
-				t.Errorf("titularLetra(%q) = %q, esperado %q", tt.in, got, tt.want)
+			if got := TitularLetra(tt.in); got != tt.want {
+				t.Errorf("TitularLetra(%q) = %q, esperado %q", tt.in, got, tt.want)
 			}
 		})
 	}

@@ -125,7 +125,7 @@ func (s *HinoService) AtualizarHino(
 	}
 
 	// A letra é normalizada para Title Case antes de persistir.
-	upd.Letra = titularLetra(upd.Letra)
+	upd.Letra = TitularLetra(upd.Letra)
 
 	hino.Titulo = upd.Titulo
 	hino.Letra = &upd.Letra
@@ -345,15 +345,17 @@ func titleCase(s string) string {
 	return strings.Join(words, " ")
 }
 
-// titularLetra converte a letra do hino para Title Case antes de salvar,
+// TitularLetra converte a letra do hino para Title Case antes de salvar,
 // evitando que o texto fique todo em minúsculas ou todo em maiúsculas.
+// É exportada para que a ETL (cmd/etl) grave o texto idêntico ao da edição
+// web — mesma função, mesmos casos de borda, sem duplicação.
 //
 // A conversão é aplicada palavra a palavra apenas quando a linha está
 // uniformemente em minúsculas ou em maiúsculas; texto já com caixa mista é
 // preservado (não estraga nomes já corretamente capitalizados). A indentação
 // inicial é mantida, pois é usada para detectar refrões. Linhas em branco
 // (separadores de blocos) são preservadas.
-func titularLetra(s string) string {
+func TitularLetra(s string) string {
 	// Normaliza quebras de linha para LF antes de processar: o textarea do
 	// formulário pode enviar CRLF, e o "\r" restante contaminaria o Title Case
 	// e a separação de blocos (linha em branco extra nos slides).
