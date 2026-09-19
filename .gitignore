@@ -17,9 +17,8 @@ docs/
 # Saída e logs
 output/
 logs/
-
-# Corpus de slides legados (entrada da ETL — binários grandes, locais)
 corpus/
+wayfinder/
 
 # Ambiente
 .env
