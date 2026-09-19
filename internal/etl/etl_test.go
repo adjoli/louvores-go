@@ -551,3 +551,23 @@ func TestBackupArquivo_DuplicadoMesmoSegundo(t *testing.T) {
 	_, err := BackupArquivo(orig)
 	t.Logf("segundo backup: %v", err)
 }
+
+func TestLerCSV_NumeroLinhaNoErro(t *testing.T) {
+	p := csvTemp(t, cabecalho+
+		`a,ok.pptx,CC,1,T,L,OK,`+"\n"+
+		`a,ruim.pptx,CC,abc,T,L,OK,`+"\n")
+	_, err := LerCSV(p)
+	if err == nil || !strings.Contains(err.Error(), "linha 3") {
+		t.Fatalf("erro deveria citar a linha 3, veio %v", err)
+	}
+}
+
+func TestRelatorio_PuladosOrdemAlfabetica(t *testing.T) {
+	plano := &Plano{Pulados: 3, PuladosPorCol: map[string]int{"VM": 1, "CC": 2}}
+	rel := Relatorio(plano)
+	icc := strings.Index(rel, "pulados CC: 2")
+	ivm := strings.Index(rel, "pulados VM: 1")
+	if icc < 0 || ivm < 0 || icc > ivm {
+		t.Fatalf("ordem alfabética esperada em:\n%s", rel)
+	}
+}
