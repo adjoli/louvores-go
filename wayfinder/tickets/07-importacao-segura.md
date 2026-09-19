@@ -34,6 +34,9 @@ aqui só se decide o COMO.)
   `--force` sobrescreve, com OK explícito); reexecução = 0 mudanças;
   backup automático `<db>.bak-<ts>` antes de escrever; `--init` exigido
   para criar banco novo.
+- Decisões dia-da-prod (Mateus, 09/2026): import **tudo de uma vez**
+  (~822, um dry-run + uma gravação); **`--force` nunca em prod**
+  (só entra letra onde está NULL).
 - Completude = reconciliação (codex): cada uma das 1187 chaves termina em
   exatamente um estado terminal — `importado`, `sem-fonte-confirmado`,
   `ambiguo-confirmado`, `ole-pendente`, `erro-extracao` ou

@@ -34,6 +34,7 @@ ferramentas, importação segura), pronto para execução.
 - [Extração dos .ppt binários (OLE)](tickets/08-extracao-ppt-ole.md): LibreOffice headless, 650/650 convertidos, texto em `corpus/txt/`, update levado ao Drive via `revisao-ole-update.csv`
 - [Heurística de refrão (detecção)](tickets/04-heuristica-refrao.md): ≥2× normalizado = refrão, zero = sem refrão, empate = mais repetido ou humano; máquina pré-marca, planilha confirma
 - [Junção, armazenamento e papel do LLM](tickets/09-juncao-armazenamento-llm.md): junção mínima ≤8 linhas, N× (convenção CC 7), sem LLM
+- [Formato intermediário de revisão](tickets/05-formato-revisao.md): sheet definitiva do Mateus; pronto = `OK` + `REVISADO POR`, sem validação extra
 
 ## Not yet specified
 

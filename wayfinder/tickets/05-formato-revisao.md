@@ -1,7 +1,7 @@
 # Formato intermediário de revisão
 
 - Tipo: `wayfinder:grilling` (HITL — Mateus + Jônatas + Gabriel + louvor)
-- Estado: aberto, não atribuído (bloqueado)
+- Estado: fechado (decisões finais sessão ETL, 09/2026)
 - Bloqueado por: [Formato esperado pelo banco](02-formato-esperado.md), [Junção, armazenamento e papel do LLM](09-juncao-armazenamento-llm.md)
 
 ## Question
@@ -39,19 +39,10 @@ ou página temporária — e onde ele vive?
   linha, sem `--- slide ---`/contadores/rodapés/numeração; correção na
   própria célula; `PENDENTE` → **`OK`** quando pronto (importador lê `OK`).
 
-## Feito quando
+## Resolução (decisões finais, Mateus 09/2026)
 
-- [ ] Grilling trava: colunas/campos do artefato (base `corpus.csv` +
-      colunas de revisão codex: `titulo_db`, `candidatos_db`, `score`,
-      `metodo`, `trecho_inicial`, `refrao_fingerprint`, `num_slides`,
-      `arquivo_vencedor`, `decisao`, `motivo_decisao`, `revisor_em` —
-      preview que permite decidir o link em segundos por linha),
-      local (preferir pasta local ou Drive; página web temporária só como
-      fallback com dono explícito — o middleware protege tudo exceto
-      `/login`, `/api/healthz` e `/static/`), e critério de "pronto para
-      importar" (quem dá o OK por hino)
-- Decisão codex (sessão ETL): UI de import/link **adiada** — primeiro um
-  CLI idempotente que valida e aplica decisões explícitas do CSV (dry-run
-  + relatório de reconciliação). Página web só se a revisão recorrente
-  superar o conforto de editar CSV.
-- [ ] Resposta registra o formato escolhido + modelo de 1 hino revisado
+- Formato: planilha definitiva do Mateus no Drive (cabeçalhos `pasta
+  original, arquivo original, hinario, numero, titulo, letra, status,
+  REVISADO POR, observacao`; só amarelos editáveis).
+- Critério de pronto: `status = OK` + `REVISADO POR` preenchido — sem
+  validação extra do Adão, importa direto.
