@@ -469,7 +469,7 @@ func TestInspecionarBlocos_ErroSentinelaECorte(t *testing.T) {
 		t.Fatal(err)
 	}
 	longa := strings.Repeat("á", 51)
-	if _, err := conn.Exec(`UPDATE hino SET letra = ? WHERE numeracao = 1`, longa+ "\n  refrão"); err != nil {
+	if _, err := conn.Exec(`UPDATE hino SET letra = ? WHERE numeracao = 1`, longa+"\n  refrão"); err != nil {
 		t.Fatal(err)
 	}
 	out, err := InspecionarBlocos(conn, "CC/1")
