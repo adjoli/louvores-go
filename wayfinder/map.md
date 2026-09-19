@@ -35,6 +35,8 @@ ferramentas, importação segura), pronto para execução.
 - [Heurística de refrão (detecção)](tickets/04-heuristica-refrao.md): ≥2× normalizado = refrão, zero = sem refrão, empate = mais repetido ou humano; máquina pré-marca, planilha confirma
 - [Junção, armazenamento e papel do LLM](tickets/09-juncao-armazenamento-llm.md): junção mínima ≤8 linhas, N× (convenção CC 7), sem LLM
 - [Formato intermediário de revisão](tickets/05-formato-revisao.md): sheet definitiva do Mateus; pronto = `OK` + `REVISADO POR`, sem validação extra
+- [Desenho da pipeline ETL](tickets/06-desenho-pipeline.md): `importar` em Go sem TUI; `extrair`/`revisao-pack` como passo a passo em `cmd/etl/AGENTS.md`; tudo local e idempotente
+- [Regras de importação segura](tickets/07-importacao-segura.md): skip-default, `--force` nunca em prod, tudo de uma vez, dry-run + backup; validação total no dia-da-prod
 
 ## Not yet specified
 

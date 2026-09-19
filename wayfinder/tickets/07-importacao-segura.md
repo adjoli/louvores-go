@@ -1,7 +1,7 @@
 # Regras de importação segura
 
 - Tipo: `wayfinder:grilling` (HITL — Mateus + Adão; acesso ao Turso na execução)
-- Estado: aberto, não atribuído (bloqueado)
+- Estado: fechado (regras travadas; execução fica para pós-merge)
 - Bloqueado por: [Desenho da pipeline ETL](06-desenho-pipeline.md)
 
 ## Question
@@ -46,18 +46,13 @@ aqui só se decide o COMO.)
   numeração; nome de saída `{CODIGO}-{NUM:03d}-{TITULO}.pptx`; spec OpenAPI +
   teste de paridade precisam continuar passando (`go test ./...`).
 
-## Feito quando
+## Resolução (regras travadas, sessão ETL 09/2026)
 
-- [ ] Grilling trava: (a) estratégia de unicidade/idempotência (2ª execução
-      = 0 mudanças), (b) política upsert (pular com letra? sobrescrever só
-      `revisado=false`? com qual WHERE que preserve o invariante),
-      (c) validação: **gerar e verificar os slides de TODOS os hinos
-      alterados** (PPTX abre sem reparo, `TestGeneratedPackageIntegrity`
-      verde), cada skip do lote justificado — contagem + amostra não basta,
-      (d) comando com `--dry-run` **obrigatório** mostrando novos vs
-      modificados vs pulados, global e por coletânea, e exigência de
-      backup prévio documentado.
-      São 4 sub-decisões numa sessão: timeboxar; se travar, pré-dividir
-      (a+b numa, c+d noutra)
-- [ ] Resposta registra as 4 regras — aí o mapa está pronto para execução
-      (backup + importação real ficam para depois do mapa)
+- (a) unicidade: preflight por `CODIGO/numero` (índice não-único) +
+  idempotência (2ª execução = 0 mudanças) — implementado.
+- (b) upsert: pular quem já tem letra; `--force` nunca em prod.
+- (c) validação de todos os alterados: procedimento do dia-da-prod
+  (gerar slides + abrir amostra + suíte verde) — ver
+  `cmd/etl/AGENTS.md`; execução pós-merge.
+- (d) dry-run obrigatório + backup prévio — implementado (`-check`,
+  `<db>.bak-<ts>`, `--init`).

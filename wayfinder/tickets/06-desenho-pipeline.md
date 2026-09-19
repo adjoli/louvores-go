@@ -1,7 +1,7 @@
 # Desenho da pipeline ETL
 
 - Tipo: `wayfinder:prototype` (HITL — artefato barato para reagir)
-- Estado: aberto, não atribuído (bloqueado)
+- Estado: fechado (protótipo promovido a CLI, sessão ETL 09/2026)
 - Bloqueado por: [Inventário do corpus legado](01-inventario-corpus.md), [Heurística de refrão (detecção)](04-heuristica-refrao.md), [Junção, armazenamento e papel do LLM](09-juncao-armazenamento-llm.md), [Formato intermediário de revisão](05-formato-revisao.md), [Extração dos .ppt binários (OLE)](08-extracao-ppt-ole.md)
 
 ## Question
@@ -55,11 +55,12 @@ linguagem/ferramentas, onde roda, e como cada etapa é reproduzível?
   helpers puros (`services.TitularLetra`) é permitido — proibido é mexer
   em `ppt`/`processors`/template.
 
-## Feito quando
+## Resolução (as-built, sessão ETL 09/2026)
 
-- [ ] Protótipo (não a pipeline final): diagrama + esqueleto **separado do
-      binário principal** (`cmd/etl --dry-run` ou script + `Makefile`
-      target) que processa a pasta `wayfinder/evidencia/` e extrai 2 hinos
-      até o formato de revisão, sem tocar no código de geração
-- [ ] Resposta linka o protótipo e trava: Go vs Python por etapa, comando de
-      cada fase, onde roda (local vs CI), e como re-rodar sem duplicar
+- `importar`: CLI Go (`cmd/etl` + `internal/etl`, stdlib sem TUI —
+  `pterm` avaliado e removido), testado, com dry-run, lotes e guards.
+- `extrair`/`revisao-pack`: ficaram como scripts avulsos desta sessão
+  (LibreOffice + `zipfile`); o passo a passo reproduzível vive em
+  `cmd/etl/AGENTS.md` para o próximo mutirão.
+- Onde roda: local, sempre. Re-rodar: idempotente (gravados viram
+  pulados).
