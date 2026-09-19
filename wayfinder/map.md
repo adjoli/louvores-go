@@ -29,6 +29,7 @@ ferramentas, importação segura), pronto para execução.
 <!-- índice: uma linha por ticket fechado; detalhe vive no ticket -->
 
 - [Inventário do corpus legado](tickets/01-inventario-corpus.md): 2282 slides catalogados em `corpus.csv`, 695/1187 chaves sem letra com fonte, mtime mais novo vence, nada descartado
+- [Extração dos .ppt binários (OLE)](tickets/08-extracao-ppt-ole.md): LibreOffice headless, 650/650 convertidos, texto em `corpus/txt/`, update levado ao Drive via `revisao-ole-update.csv`
 
 ## Not yet specified
 
