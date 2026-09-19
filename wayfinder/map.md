@@ -19,13 +19,15 @@ ferramentas, importação segura), pronto para execução.
 - Glossário canônico (de `internal/`): **coletânea** (código curto CC/HL/VM/HCC/COR), **hino** (chave `CODIGO/numero`, ex. CC/42), **letra** (texto bruto com blocos separados por linha em branco `\n\s*\n`), **estrofe** (bloco sem indentação) vs **refrão** (todas as linhas com espaço/tab inicial, indentação removida), **parte/slide** (`domain.SequenciaHino`, `Numero` 1-based, rodapé `N/total`), **revisado** (bool irreversível — só gera slide se `true`), **Title Case** (`titularLetra`, preserva indentação e caixa mista, normaliza CRLF→LF), **template** único `default.pptx` (layouts 1=TITULO, 2=ESTROFE, 3=REFRAO — não alterar).
 - Preferências standing: importação é **em lote idempotente** (não edição manual no SQLite); backup manual do Turso free (só 24h) antes de qualquer escrita; `data/hinos.db`, `output/`, `logs/`, `.env`, dumps fora do git; arquivos `_templ.go` commitados (irrelevante aqui); fonte da verdade continua o **banco** (não migrar para `hinos/*.md` neste esforço).
 - Decisão assentada (Mateus, 09/2026): a ETL é uma **camada separada e simples** (CLI ou script que processa uma pasta inteira de `pptx`/`ppt` e entrega o artefato pronto para importar) — **zero mudanças no codebase atual de geração de slides** (`internal/ppt`, `processors`, `services`, template). A ETL só lê slides legados e escreve o formato de revisão/importação.
-- Contexto do chat (18/09/2026): Adão revisa semanalmente o que tem letra e copia/cola o que não tem a partir dos slides antigos; IA anterior gerou letra mal formatada e não confiável; faltam ~300 letras, sobretudo HL/HCC/corinhos; mutirão de revisão com Jônatas/Gabriel/louvor comparando com o hinário.
+- Contexto do chat (18/09/2026): Adão revisa semanalmente o que tem letra e copia/cola o que não tem a partir dos slides antigos;   IA anterior gerou letra mal formatada e não confiável; estimava-se ~300,
+  mas o banco local tem **1187 sem letra** (HCC 429, VM 400, CC 151,
+  COR 141, HL 66); mutirão de revisão com Jônatas/Gabriel/louvor comparando com o hinário.
 
 ## Decisions so far
 
 <!-- índice: uma linha por ticket fechado; detalhe vive no ticket -->
 
-- (nenhuma ainda — mapa recém-cartografado)
+- [Inventário do corpus legado](tickets/01-inventario-corpus.md): 2282 slides catalogados em `corpus.csv`, 695/1187 chaves sem letra com fonte, mtime mais novo vence, nada descartado
 
 ## Not yet specified
 

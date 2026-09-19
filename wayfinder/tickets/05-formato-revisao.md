@@ -25,10 +25,17 @@ ou página temporária — e onde ele vive?
 
 ## Feito quando
 
-- [ ] Grilling trava: colunas/campos do artefato (código, número, título,
-      letra já em Title Case + refrão indentado, créditos, flag revisado),
+- [ ] Grilling trava: colunas/campos do artefato (base `corpus.csv` +
+      colunas de revisão codex: `titulo_db`, `candidatos_db`, `score`,
+      `metodo`, `trecho_inicial`, `refrao_fingerprint`, `num_slides`,
+      `arquivo_vencedor`, `decisao`, `motivo_decisao`, `revisor_em` —
+      preview que permite decidir o link em segundos por linha),
       local (preferir pasta local ou Drive; página web temporária só como
       fallback com dono explícito — o middleware protege tudo exceto
       `/login`, `/api/healthz` e `/static/`), e critério de "pronto para
       importar" (quem dá o OK por hino)
+- Decisão codex (sessão ETL): UI de import/link **adiada** — primeiro um
+  CLI idempotente que valida e aplica decisões explícitas do CSV (dry-run
+  + relatório de reconciliação). Página web só se a revisão recorrente
+  superar o conforto de editar CSV.
 - [ ] Resposta registra o formato escolhido + modelo de 1 hino revisado

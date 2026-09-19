@@ -24,6 +24,17 @@ aqui só se decide o COMO.)
   `true`), mas SQL direto bypassa — **nenhuma importação pode levar
   `revisado` de `true` para `false`** nem sobrescrever letra de hino já
   revisado sem OK explícito.
+- Guardas do importador (codex, sessão ETL): validar que cada `chave_db`
+  resolve **exatamente um hino** e que `letra IS NULL`; atualizar por `id`
+  com `RowsAffected=1`, em transação; **rejeitar texto vazio**
+  (`letra = ''` conta como "com letra" no `COUNT(h.letra)`); ETL toca
+  **somente `letra`** (nunca título/créditos/revisão — o serviço web os
+  alteraria de brinde).
+- Completude = reconciliação (codex): cada uma das 1187 chaves termina em
+  exatamente um estado terminal — `importado`, `sem-fonte-confirmado`,
+  `ambiguo-confirmado`, `ole-pendente`, `erro-extracao` ou
+  `descartado-com-motivo`. Totais globais e por coletânea, sem chave
+  duplicada; preservar LF/indentação (afeta detecção de refrão).
 - Regras de lote: `GerarSlidesColetanea` pula não-revisados/sem letra/sem
   numeração; nome de saída `{CODIGO}-{NUM:03d}-{TITULO}.pptx`; spec OpenAPI +
   teste de paridade precisam continuar passando (`go test ./...`).

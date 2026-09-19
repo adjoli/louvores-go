@@ -26,6 +26,10 @@ linguagem/ferramentas, onde roda, e como cada etapa é reproduzível?
   uma pasta de `pptx`/`ppt`) — **não modifica** `internal/ppt`,
   `processors`, `services` nem o template. Ela termina no artefato de
   revisão/importação; a geração de slides continua intacta.
+- Match em estágios (codex, sessão ETL): número → título exato →
+  similaridade (tokens/refrão) só como `candidato` para revisão humana
+  (candidato único acima do limiar E com margem; nunca autoaceito em
+  `chave_db`).
 
 ## Feito quando
 
