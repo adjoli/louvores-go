@@ -194,7 +194,48 @@ func (r *SQLiteHinoRepository) Delete(
 	return nil
 }
 
-// StatsRow é a projeção de uma linha agregada por coletânea (resultado do
+// ContarPorNumero conta quantos hinos existem para a chave de negócio
+// (coletânea + numeração). O índice (coletanea_id, numeracao) não é
+// único — a ETL usa isso como preflight de duplicatas no banco.
+func (r *SQLiteHinoRepository) ContarPorNumero(
+	ctx context.Context,
+	coletaneaID int64,
+	numero int,
+) (int, error) {
+	var n int
+	if err := r.db.QueryRowContext(
+		ctx,
+		"SELECT COUNT(*) FROM hino WHERE coletanea_id = ? AND numeracao = ?",
+		coletaneaID,
+		numero,
+	).Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// AtualizarLetra grava letra + revisado=1 do hino pelo ID interno, em
+// transação fornecida pelo chamador (a ETL controla os lotes).
+// Retorna ErrHinoNotFound se o ID não existir.
+func AtualizarLetraTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	id int64,
+	letra string,
+) error {
+	res, err := tx.Exec("UPDATE hino SET letra = ?, revisado = 1 WHERE id = ?", letra, id)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrHinoNotFound
+	}
+	return nil
+}
 // GROUP BY do SQL). Os campos derivados (não revisados, percentual) ficam
 // por conta da camada de serviços.
 type StatsRow struct {

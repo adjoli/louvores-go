@@ -76,7 +76,7 @@ func TestPlanejar_ClassificaENovosModificadosErros(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas)
+	plano, err := Planejar(conn, linhas, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestImportar_EscreveTitleCaseERevisado(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas)
+	plano, err := Planejar(conn, linhas, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestImportar_RollbackDoLoteComFalha(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas)
+	plano, err := Planejar(conn, linhas, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,12 +184,168 @@ func TestRelatorio_PorColetanea(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas)
+	plano, err := Planejar(conn, linhas, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rel := Relatorio(plano.Prontos)
+	rel := Relatorio(plano)
 	if !strings.Contains(rel, "CC: novos=1 modificados=1") {
 		t.Fatalf("relatório inesperado:\n%s", rel)
+	}
+}
+
+func TestPlanejar_PulaQuemJaTemLetra(t *testing.T) {
+	conn := bancoTeste(t)
+	p := csvTemp(t, cabecalho+`a,dois.pptx,CC,2,T2,"Nova",OK,`+"\n")
+	linhas, err := LerCSV(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plano, err := Planejar(conn, linhas, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plano.Prontos) != 0 || plano.JaTem != 1 {
+		t.Fatalf("plano = %+v", plano)
+	}
+}
+
+func TestPlanejar_ForceSobrescreveEIdempotente(t *testing.T) {
+	conn := bancoTeste(t)
+	p := csvTemp(t, cabecalho+`a,um.pptx,CC,1,T1,"Letra Um",OK,`+"\n")
+	linhas, err := LerCSV(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plano, err := Planejar(conn, linhas, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := Importar(conn, plano, 100, nil); err != nil || n != 1 {
+		t.Fatalf("n=%d err=%v", n, err)
+	}
+	// Re-planejar: agora tem letra → 0 prontos (idempotente).
+	plano2, err := Planejar(conn, linhas, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plano2.Prontos) != 0 {
+		t.Fatalf("reexecução deveria ser vazia: %+v", plano2)
+	}
+	// Com --force, volta a ser modificável.
+	plano3, err := Planejar(conn, linhas, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plano3.Prontos) != 1 || !plano3.Prontos[0].D.TemLetra {
+		t.Fatalf("force deveria liberar: %+v", plano3)
+	}
+}
+
+func TestPlanejar_ChaveDuplicadaCSV(t *testing.T) {
+	conn := bancoTeste(t)
+	p := csvTemp(t, cabecalho+
+		`a,um.pptx,CC,1,T1,"L1",OK,`+"\n"+
+		`a,outro.pptx,CC,1,T1,"L2",OK,`+"\n")
+	linhas, err := LerCSV(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plano, err := Planejar(conn, linhas, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plano.Erros != 1 || len(plano.Prontos) != 1 {
+		t.Fatalf("plano = %+v", plano)
+	}
+}
+
+func TestPlanejar_ChaveDuplicadaBanco(t *testing.T) {
+	conn := bancoTeste(t)
+	if _, err := conn.Exec(`INSERT INTO hino (coletanea_id, numeracao, titulo) VALUES (1, 1, 'Dup')`); err != nil {
+		t.Fatal(err)
+	}
+	p := csvTemp(t, cabecalho+`a,um.pptx,CC,1,T1,"L1",OK,`+"\n")
+	linhas, err := LerCSV(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plano, err := Planejar(conn, linhas, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plano.Erros != 1 {
+		t.Fatalf("plano = %+v", plano)
+	}
+}
+
+func TestLerCSV_LinhaCurtaENumeroInvalido(t *testing.T) {
+	p := csvTemp(t, cabecalho+
+		"a,curto.pptx,CC\n"+
+		`a,ruim.pptx,CC,abc,T,L,OK,`+"\n"+
+		`a,zero.pptx,CC,0,T,L,OK,`+"\n")
+	if _, err := LerCSV(p); err == nil {
+		t.Fatal("esperava erros de parse")
+	}
+}
+
+func TestLerCSV_BOM(t *testing.T) {
+	p := csvTemp(t, "\ufeff"+cabecalho+`a,um.pptx,CC,1,T1,"L1",OK,`+"\n")
+	linhas, err := LerCSV(p)
+	if err != nil {
+		t.Fatalf("BOM deveria ser tolerado: %v", err)
+	}
+	if len(linhas) != 1 {
+		t.Fatalf("linhas = %d", len(linhas))
+	}
+}
+
+func TestImportar_LoteInvalido(t *testing.T) {
+	conn := bancoTeste(t)
+	if _, err := Importar(conn, &Plano{}, 0, nil); err == nil {
+		t.Fatal("lote 0 deveria errar")
+	}
+}
+
+func TestBackupArquivo(t *testing.T) {
+	orig := filepath.Join(t.TempDir(), "banco.db")
+	if err := os.WriteFile(orig, []byte("dados"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dest, err := BackupArquivo(orig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(dest)
+	if err != nil || string(got) != "dados" {
+		t.Fatalf("backup inválido: %v %q", err, got)
+	}
+	if _, err := BackupArquivo(filepath.Join(t.TempDir(), "falta.db")); err == nil {
+		t.Fatal("arquivo inexistente deveria errar")
+	}
+}
+
+func TestRecusarBancoProd_RemotoEVazio(t *testing.T) {
+	for _, p := range []string{"", "libsql://x.turso.io", "https://x/db"} {
+		if err := RecusarBancoProd(p); err == nil {
+			t.Fatalf("%q deveria ser recusado", p)
+		}
+	}
+}
+
+func TestInspecionarBlocos(t *testing.T) {
+	conn := bancoTeste(t)
+	if _, err := conn.Exec(`UPDATE hino SET letra = 'Estrofe Um' || char(10) || char(10) || '  Refrao Um', revisado = 1 WHERE numeracao = 1`); err != nil {
+		t.Fatal(err)
+	}
+	out, err := InspecionarBlocos(conn, "CC/1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "2 blocos") || !strings.Contains(out, "[refrao]") {
+		t.Fatalf("saída inesperada:\n%s", out)
+	}
+	if _, err := InspecionarBlocos(conn, "sem-barra"); err == nil {
+		t.Fatal("formato inválido deveria errar")
 	}
 }

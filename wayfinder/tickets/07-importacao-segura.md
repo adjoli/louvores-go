@@ -30,6 +30,10 @@ aqui só se decide o COMO.)
   (`letra = ''` conta como "com letra" no `COUNT(h.letra)`); ETL toca
   **somente `letra`** (nunca título/créditos/revisão — o serviço web os
   alteraria de brinde).
+- Política default (implementada): **pular quem já tem letra** (só
+  `--force` sobrescreve, com OK explícito); reexecução = 0 mudanças;
+  backup automático `<db>.bak-<ts>` antes de escrever; `--init` exigido
+  para criar banco novo.
 - Completude = reconciliação (codex): cada uma das 1187 chaves termina em
   exatamente um estado terminal — `importado`, `sem-fonte-confirmado`,
   `ambiguo-confirmado`, `ole-pendente`, `erro-extracao` ou

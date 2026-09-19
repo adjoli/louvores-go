@@ -49,6 +49,11 @@ linguagem/ferramentas, onde roda, e como cada etapa é reproduzível?
   `wayfinder/evidencia/amostra-revisao.csv` (3 hinos OK): CC/36 parseia em
   estrofe/refrão/estrofe/refrão, Title Case igual ao manual, original
   intacto, `go test ./...` verde.
+- Implementado (sessão ETL, `internal/etl` + `cmd/etl`, 17 testes): lotes
+  transacionais (default 100; falha reverte só o lote e re-rodar retoma,
+  pois gravados viram pulados); exceção à regra zero-mudanças: exportar
+  helpers puros (`services.TitularLetra`) é permitido — proibido é mexer
+  em `ppt`/`processors`/template.
 
 ## Feito quando
 

@@ -10,21 +10,16 @@
 package main
 
 import (
-	"context"
-	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/pterm/pterm"
 
 	"github.com/adjoli/louvores-go/internal/database"
 	"github.com/adjoli/louvores-go/internal/etl"
-	"github.com/adjoli/louvores-go/internal/processors"
-	"github.com/adjoli/louvores-go/internal/repository"
 )
 
 func main() {
@@ -32,21 +27,29 @@ func main() {
 	dbPath := flag.String("db", "", "SQLite local de destino")
 	dryRun := flag.Bool("dry-run", true, "mostra o overview sem escrever")
 	yes := flag.Bool("yes", false, "confirma a gravação no modo não-interativo")
+	force := flag.Bool("force", false, "sobrescreve letras já existentes")
+	initDB := flag.Bool("init", false, "permite criar o SQLite se o arquivo não existir")
 	lote := flag.Int("batch", 100, "tamanho do lote transacional")
 	check := flag.String("check", "", "exibe blocos parseados de CODIGO/NUM (ex. CC/36)")
 	flag.Parse()
 
 	csv, db := *csvPath, *dbPath
 	interativo := csv == ""
+	forcarDry := false
 	if interativo {
 		var err error
-		csv, db, err = menu()
+		var acao string
+		acao, csv, db, err = menu()
 		if err != nil {
 			log.Fatal(err)
 		}
+		forcarDry = strings.HasPrefix(acao, "Validar")
 	}
 	if err := etl.RecusarBancoProd(db); err != nil {
 		log.Fatal(err)
+	}
+	if _, err := os.Stat(db); err != nil && !*initDB {
+		log.Fatalf("banco %q não existe (use -init para criar)", db)
 	}
 
 	linhas, err := etl.LerCSV(csv)
@@ -62,27 +65,26 @@ func main() {
 		log.Fatal(err)
 	}
 
-	plano, err := etl.Planejar(conn, linhas)
+	plano, err := etl.Planejar(conn, linhas, *force)
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, d := range plano.Detalhes {
 		fmt.Fprintln(os.Stderr, d)
 	}
-	fmt.Print(etl.Relatorio(plano.Prontos))
-	fmt.Printf("pulados (status != OK): %d | erros: %d\n", plano.Pulados, plano.Erros)
+	fmt.Print(etl.Relatorio(plano))
 	if plano.Erros > 0 {
 		log.Fatal("importação bloqueada: corrija os erros acima")
 	}
 
-	if *dryRun {
+	if *dryRun || forcarDry {
 		fmt.Println("DRY-RUN: nada escrito.")
 		return
 	}
 	if interativo {
 		ok, err := pterm.DefaultInteractiveConfirm.
 			WithDefaultValue(false).
-			Show("Gravar " + strconv.Itoa(len(plano.Prontos)) + " hinos?")
+			Show("Gravar " + itoa(len(plano.Prontos)) + " hinos? (backup será criado antes)")
 		if err != nil || !ok {
 			fmt.Println("cancelado.")
 			return
@@ -90,6 +92,12 @@ func main() {
 	} else if !*yes {
 		log.Fatal("modo não-interativo exige -yes para gravar")
 	}
+
+	backup, err := etl.BackupArquivo(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("backup em", backup)
 
 	var prog func(feitos, total int)
 	if interativo {
@@ -113,69 +121,41 @@ func main() {
 	}
 	n, err := etl.Importar(conn, plano, *lote, prog)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("%v (backup em %s; re-rodar retoma — gravados viram pulados)", err, backup)
 	}
-	fmt.Printf("GRAVADO: %d hinos em lotes de %d\n", n, *lote)
+	fmt.Printf("GRAVADO: %d hinos em lotes de %d (backup em %s)\n", n, *lote, backup)
 
 	if *check != "" {
-		mostrarBlocos(conn, *check)
+		out, err := etl.InspecionarBlocos(conn, *check)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Print(out)
 	}
 }
 
-func menu() (string, string, error) {
+func menu() (string, string, string, error) {
 	acao, err := pterm.DefaultInteractiveSelect.
 		WithOptions([]string{"Importar CSV (dry-run + gravar)", "Validar CSV (só dry-run)"}).
 		Show()
 	if err != nil {
-		return "", "", err
-	 }
-	_ = acao
+		return "", "", "", err
+	}
 	csv, err := pterm.DefaultInteractiveTextInput.
 		WithDefaultText("caminho do CSV").
 		Show()
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	db, err := pterm.DefaultInteractiveTextInput.
 		WithDefaultText("caminho do SQLite local").
 		Show()
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
-	return strings.TrimSpace(csv), strings.TrimSpace(db), nil
+	return acao, strings.TrimSpace(csv), strings.TrimSpace(db), nil
 }
 
-func mostrarBlocos(conn *sql.DB, alvo string) {
-	partes := strings.SplitN(alvo, "/", 2)
-	if len(partes) != 2 {
-		log.Fatal("-check no formato CODIGO/NUM")
-	}
-	num, err := strconv.Atoi(partes[1])
-	if err != nil {
-		log.Fatal(err)
-	}
-	ctx := context.Background()
-	colets := repository.NewSQLiteColetaneaRepository(conn)
-	hinos := repository.NewSQLiteHinoRepository(conn)
-	col, err := colets.FindByCodigo(ctx, strings.ToUpper(partes[0]))
-	if err != nil {
-		log.Fatal(err)
-	}
-	h, err := hinos.FindByNumero(ctx, col.ID, num)
-	if err != nil {
-		log.Fatal(err)
-	}
-	letra := ""
-	if h.Letra != nil {
-		letra = *h.Letra
-	}
-	seq := processors.ProcessarHino(letra)
-	fmt.Printf("%s: %d blocos\n", alvo, len(seq.Partes))
-	for _, p := range seq.Partes {
-		primeira := strings.SplitN(p.Txt, "\n", 2)[0]
-		if len(primeira) > 50 {
-			primeira = primeira[:50]
-		}
-		fmt.Printf("  [%s] %s...\n", p.Tipo, primeira)
-	}
+func itoa(n int) string {
+	return fmt.Sprintf("%d", n)
 }
