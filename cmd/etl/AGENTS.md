@@ -2,6 +2,38 @@
 
 CLI do operador. Revisores nunca encostam aqui — eles vivem na planilha.
 
+## Como a letra vira slide (fluxo da app)
+
+O banco guarda só texto. PPTX nasce na hora do download: hino revisado
+→ `GET /api/.../hinos/{numero}/slides` (um hino) ou `POST .../slides/lote`
+(ZIP da coletânea). Nada é armazenado. Por isso o import só precisa
+acertar o **texto** — e o `-validar` existe para provar, ainda na
+importação, que cada texto gera um pacote íntegro (em vez de descobrir
+no domingo de manhã).
+
+## Uso do CLI
+
+```
+# 1. Overview (sempre primeiro, nunca escreve)
+go run ./cmd/etl -csv revisao.csv -db copia.db
+
+# 2. Conferir blocos de um hino (estrofe vs refrão)
+go run ./cmd/etl -csv revisao.csv -db copia.db -check CC/36
+
+# 3. Gravar (exige -yes; cria copia.db.bak-* antes)
+go run ./cmd/etl -csv revisao.csv -db copia.db -dry-run=false -yes
+
+# 4. Gravar + validar pacotes (recomendado no dia-da-prod)
+go run ./cmd/etl -csv revisao.csv -db copia.db -dry-run=false -yes -validar
+
+# Opcionais: -batch 100 (lotes transacionais), -force (sobrescreve letra
+# existente — NUNCA em prod), -init (criar banco novo),
+# -template outro.pptx (padrão: data/templates/default.pptx)
+```
+
+Sem flags abre menu interativo (`1` importar, `2` só validar).
+Trava de segurança: recusa `data/hinos.db`, URL remota e path vazio.
+
 ## Mutirão (quando chegarem slides novos)
 
 1. Jogue os `pptx`/`ppt`/`pps` numa pasta (ex. `corpus/novos/`).
@@ -23,11 +55,10 @@ CLI do operador. Revisores nunca encostam aqui — eles vivem na planilha.
 2. Baixe a sheet como CSV.
 3. Dry-run contra uma **cópia** do banco. Tem que dar 0 erros.
    Confira novos vs modificados, global e por coletânea.
-4. Grave: `go run ./cmd/etl -csv revisao.csv -db copia.db -dry-run=false -yes`.
+4. Grave com `-dry-run=false -yes` (passo 3/4 acima).
    Nunca `--force` em prod. Nunca `data/hinos.db`, nunca Turso direto.
-5. Valide: `... -validar` gera o PPTX de cada alterado e confere o
-   pacote (falha bloqueia com a chave). Abra uma amostra no PowerPoint.
-   `go test ./...` verde.
+5. Com `-validar`: cada alterado gera PPTX íntegro ou bloqueia com a
+   chave. Abra uma amostra no PowerPoint. `go test ./...` verde.
 6. Suba a cópia pra prod (fora do CLI, com o Adão junto).
 7. Re-rodar é seguro: quem já tem letra vira pulado (retoma sozinho).
 
