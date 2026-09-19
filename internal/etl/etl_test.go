@@ -672,3 +672,19 @@ func TestPlanejar_NormalizaStatusEColetanea(t *testing.T) {
 		t.Fatalf("plano = %+v", plano)
 	}
 }
+
+func TestValidarSlides_PacoteCurto(t *testing.T) {
+	conn := bancoTeste(t)
+	tpl := filepath.Join("..", "..", "data", "templates", "default.pptx")
+	if _, err := os.Stat(tpl); err != nil {
+		t.Skip("template ausente")
+	}
+	if _, err := conn.Exec(`UPDATE hino SET letra = '', revisado = 1 WHERE numeracao = 1`); err != nil {
+		t.Fatal(err)
+	}
+	res := ValidarSlides(context.Background(), conn, tpl,
+		[]Item{{Linha: Linha{Coletanea: "CC", Numero: 1}, Destino: Destino{HinoID: 1}}})
+	if len(res) != 1 || res[0].Erro == nil || !strings.Contains(res[0].Erro.Error(), "1 slide") {
+		t.Fatalf("res = %+v", res)
+	}
+}
