@@ -34,6 +34,10 @@ ou página temporária — e onde ele vive?
   `IGNORAR` (versão antiga). Arquivo: `corpus/revisao.csv` (gitignored,
   2282 linhas: pasta, arquivo, hinario, numero, titulo, letra, status,
   observacao).
+- Instruções aos revisores em `wayfinder/evidencia/instrucoes-revisao.md`
+  (regras + exemplo antes/depois): refrão repetido N× com 2 espaços por
+  linha, sem `--- slide ---`/contadores/rodapés/numeração; correção na
+  própria célula; `PENDENTE` → **`OK`** quando pronto (importador lê `OK`).
 
 ## Feito quando
 

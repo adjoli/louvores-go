@@ -20,6 +20,8 @@ algum) um LLM tem nisso?
 - Armazenamento: refrão gravado uma única vez (menos linhas para revisar,
   como na proposta `hinos/*.md`) vs repetido após cada estrofe (fiel ao
   cantado). Afeta o mutirão de revisão ([Formato intermediário de revisão](05-formato-revisao.md)).
+  Evidência do banco (sessão ETL): CC 7 repete o refrão indentado após
+  cada estrofe (8 blocos) — convenção vigente é **N×**; grilling confirma.
 - LLM: Adão tentou gerar letra via IA e veio mal formatada e não confiável.
   Opções: sem LLM (só determinístico) vs LLM só classificando candidatos,
   nunca gerando letra do zero.
