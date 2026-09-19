@@ -480,3 +480,73 @@ func TestInspecionarBlocos_ErroSentinelaECorte(t *testing.T) {
 		t.Fatalf("corte de 50 runes não aplicado:\n%s", out)
 	}
 }
+
+func TestLerCSV_ArquivoInexistenteEMalformado(t *testing.T) {
+	if _, err := LerCSV(filepath.Join(t.TempDir(), "falta.csv")); err == nil {
+		t.Fatal("arquivo inexistente deveria errar")
+	}
+	p := csvTemp(t, cabecalho+"a,um.pptx,CC,1,T1,\"aspas quebradas,OK,\n")
+	if _, err := LerCSV(p); err == nil {
+		t.Fatal("csv malformado deveria errar")
+	}
+}
+
+func TestImportar_BancoFechado(t *testing.T) {
+	conn := bancoTeste(t)
+	conn.Close()
+	if _, err := Importar(conn, &Plano{Prontos: []Item{{L: Linha{NumLinha: 2}, D: Destino{HinoID: 1}}}}, 10, nil); err == nil {
+		t.Fatal("banco fechado deveria errar")
+	}
+}
+
+func TestBackupArquivo_Diretorio(t *testing.T) {
+	if _, err := BackupArquivo(t.TempDir()); err == nil {
+		t.Fatal("diretório deveria errar")
+	}
+}
+
+func TestRelatorio_PlanoNulo(t *testing.T) {
+	if got := Relatorio(nil); !strings.Contains(got, "nulo") {
+		t.Fatalf("esperava aviso, veio %q", got)
+	}
+}
+
+func TestInspecionarBlocos_NaoEncontrados(t *testing.T) {
+	conn := bancoTeste(t)
+	if _, err := InspecionarBlocos(conn, "XX/1"); err == nil {
+		t.Fatal("coletânea inexistente deveria errar")
+	}
+	if _, err := InspecionarBlocos(conn, "CC/999"); err == nil {
+		t.Fatal("hino inexistente deveria errar")
+	}
+}
+
+func TestLerCSV_Vazio(t *testing.T) {
+	p := csvTemp(t, "")
+	if _, err := LerCSV(p); err == nil {
+		t.Fatal("csv vazio deveria errar")
+	}
+}
+
+func TestPlanejar_BancoFechado(t *testing.T) {
+	conn := bancoTeste(t)
+	conn.Close()
+	linhas := []Linha{{Arquivo: "x", Colet: "CC", Numero: 1, Letra: "L", Status: "OK", NumLinha: 2}}
+	if _, err := Planejar(conn, linhas, false); err == nil {
+		t.Fatal("banco fechado deveria errar")
+	}
+}
+
+func TestBackupArquivo_DuplicadoMesmoSegundo(t *testing.T) {
+	orig := filepath.Join(t.TempDir(), "banco.db")
+	if err := os.WriteFile(orig, []byte("dados"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := BackupArquivo(orig); err != nil {
+		t.Fatal(err)
+	}
+	// Segundo backup no mesmo segundo colide no O_EXCL (comportamento
+	// documentado: timestamp tem resolução de 1s).
+	_, err := BackupArquivo(orig)
+	t.Logf("segundo backup: %v", err)
+}

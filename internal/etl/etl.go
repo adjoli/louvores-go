@@ -110,10 +110,8 @@ func LerCSV(path string) ([]Linha, error) {
 	var out []Linha
 	var elist []error
 	for i, r := range recs[1:] {
-		if len(r) != len(recs[0]) {
-			elist = append(elist, fmt.Errorf("linha %d: %d colunas, esperado %d: %w", i+2, len(r), len(recs[0]), ErrLinhaInvalida))
-			continue
-		}
+		// csv.Reader já barra linhas com coluna a mais/menos; aqui só
+		// o número pode ser inválido.
 		num, err := strconv.Atoi(strings.TrimSpace(r[idx["numero"]]))
 		if err != nil || num <= 0 {
 			elist = append(elist, fmt.Errorf("linha %d: número %q inválido: %w", i+2, r[idx["numero"]], ErrLinhaInvalida))

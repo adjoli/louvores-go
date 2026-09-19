@@ -1,7 +1,7 @@
 # Formato esperado pelo banco
 
 - Tipo: `wayfinder:research` (AFK)
-- Estado: aberto, não atribuído (fronteira — pode ser pego agora)
+- Estado: fechado (OK do Mateus, sessão ETL 09/2026)
 - Bloqueado por: nada
 
 ## Question
@@ -22,11 +22,9 @@ Title Case, blocos e regra estrofe/refrão?
 - Adão confirmou (chat 18/09): "se a letra seguir a indentação do refrão,
   basta dar insert com letra+título+créditos e o slide gera".
 
-## Feito quando
+## Resolução
 
-- [ ] Subagente de research leu os 4 arquivos acima + `internal/domain/slide_parts.go`
-- [ ] Resposta registra: DDL, exemplo canônico de letra (estrofe + refrão
-      indentado + linha em branco), o que zera `percentual` em stats, e o que
-      impede geração — distinguindo unitário (só `!revisado` e sem
-      `numeracao`; letra nil gera PPTX só-título sem erro) de lote
-      (pula `!revisado`, letra nil e sem `numeracao`)
+Contrato confirmado pelo subagente + correção posterior (unitário vs
+lote com letra nil, verificado no código): DDL, exemplo canônico,
+normalização e bloqueios registrados em
+`wayfinder/evidencia/research-formato-esperado.md`. OK do Mateus.

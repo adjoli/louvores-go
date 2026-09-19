@@ -1,7 +1,7 @@
 # Padrões reais dos PPTs legados
 
 - Tipo: `wayfinder:research` (AFK)
-- Estado: aberto, não atribuído (fronteira — pode ser pego agora)
+- Estado: fechado (OK do Mateus, sessão ETL 09/2026)
 - Bloqueado por: nada
 
 ## Question
@@ -27,11 +27,8 @@ como texto: layouts de título, rodapés (`1/4`, `Hino VM nº 121`, `IBRECEM`,
 - Adão: estrofes longas são quebradas em 2 slides na projeção; IA anterior
   alucinou letra — extração deve ser determinística.
 
-## Feito quando
+## Resolução
 
-- [ ] Subagente extraiu texto slide-a-slide das 8 `.pptx` (ex. `python3` com
-      `zipfile` + `a:p`/`a:t`) e documentou por arquivo: nº slides, título,
-      rodapés/ruído, blocos repetidos, caixa alta/baixa
-- [ ] Resposta registra tabela + decisão: o que é ruído descartável
-      (contadores, cabeçalhos repetidos, `Clique para adicionar texto`,
-      copyright, versículos) e quais 2 `.ppt` ficam para o ticket do OLE
+Tabela por arquivo + resumo transversal registrados em
+`wayfinder/evidencia/research-padroes-ppts.md` (contadores, rodapés,
+refrões literais, ALL CAPS, `.pps` = OLE). OK do Mateus.
