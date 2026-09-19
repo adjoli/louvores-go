@@ -25,7 +25,8 @@ CLI do operador. Revisores nunca encostam aqui — eles vivem na planilha.
    Confira novos vs modificados, global e por coletânea.
 4. Grave: `go run ./cmd/etl -csv revisao.csv -db copia.db -dry-run=false -yes`.
    Nunca `--force` em prod. Nunca `data/hinos.db`, nunca Turso direto.
-5. Valide: gere os slides dos alterados e abra uma amostra.
+5. Valide: `... -validar` gera o PPTX de cada alterado e confere o
+   pacote (falha bloqueia com a chave). Abra uma amostra no PowerPoint.
    `go test ./...` verde.
 6. Suba a cópia pra prod (fora do CLI, com o Adão junto).
 7. Re-rodar é seguro: quem já tem letra vira pulado (retoma sozinho).

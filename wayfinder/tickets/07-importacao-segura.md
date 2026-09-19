@@ -51,8 +51,9 @@ aqui só se decide o COMO.)
 - (a) unicidade: preflight por `CODIGO/numero` (índice não-único) +
   idempotência (2ª execução = 0 mudanças) — implementado.
 - (b) upsert: pular quem já tem letra; `--force` nunca em prod.
-- (c) validação de todos os alterados: procedimento do dia-da-prod
-  (gerar slides + abrir amostra + suíte verde) — ver
-  `cmd/etl/AGENTS.md`; execução pós-merge.
+- (c) validação de todos os alterados: `-validar` gera o PPTX de cada
+  hino via o caminho de produção e confere pacote íntegro (abre +
+  título + conteúdo); falha bloqueia com a chave — implementado e
+  testado com template real.
 - (d) dry-run obrigatório + backup prévio — implementado (`-check`,
   `<db>.bak-<ts>`, `--init`).

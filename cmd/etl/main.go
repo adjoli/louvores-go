@@ -31,6 +31,8 @@ func main() {
 	initDB := flag.Bool("init", false, "permite criar o SQLite se o arquivo não existir")
 	lote := flag.Int("batch", 100, "tamanho do lote transacional")
 	check := flag.String("check", "", "exibe blocos parseados de CODIGO/NUM (ex. CC/36)")
+	validar := flag.Bool("validar", false, "após gravar, gera o PPTX de cada hino e confere o pacote")
+	templatePath := flag.String("template", "data/templates/default.pptx", "template PPTX da validação")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -127,6 +129,22 @@ func main() {
 		log.Fatal(msg)
 	}
 	fmt.Printf("GRAVADO: %d hinos em lotes de %d (backup em %s)\n", n, *lote, backup)
+
+	if *validar {
+		falhas := 0
+		for _, v := range etl.ValidarSlides(ctx, conn, *templatePath, plano.Prontos) {
+			if v.Erro != nil {
+				fmt.Printf("  FALHA %s: %v\n", v.Chave, v.Erro)
+				falhas++
+			} else {
+				fmt.Printf("  OK %s: %d slides\n", v.Chave, v.Slides)
+			}
+		}
+		if falhas > 0 {
+			log.Fatalf("validação: %d hino(s) com pacote inválido", falhas)
+		}
+		fmt.Println("validação: todos os pacotes íntegros")
+	}
 }
 
 // menu exibe as ações numeradas e lê a escolha + paths do stdin.

@@ -8,6 +8,8 @@
 package etl
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/csv"
@@ -258,6 +260,60 @@ func importarLote(ctx context.Context, conn *sql.DB, itens []Item) (err error) {
 		return err
 	}
 	return nil
+}
+
+// Validacao é o resultado da geração de slides de um hino importado.
+type Validacao struct {
+	Chave  string
+	Slides int
+	Erro   error
+}
+
+// ValidarSlides gera o PPTX de cada item via o mesmo caminho de produção
+// (HinoService.GerarSlides) e confere que o pacote abre e contém título +
+// ao menos um slide de conteúdo. É o gate do 07(c): roda após o import,
+// antes de qualquer promoção. Falhas vêm com a chave para reconciliação.
+func ValidarSlides(ctx context.Context, conn *sql.DB, templatePath string, itens []Item) []Validacao {
+	hinos := repository.NewSQLiteHinoRepository(conn)
+	colets := repository.NewSQLiteColetaneaRepository(conn)
+	svc := services.NewHinoService(hinos, colets, templatePath)
+	out := make([]Validacao, 0, len(itens))
+	for _, it := range itens {
+		chave := it.Linha.Coletanea + "/" + strconv.Itoa(it.Linha.Numero)
+		v := Validacao{Chave: chave}
+		data, err := svc.GerarSlides(ctx, it.Linha.Coletanea, it.Linha.Numero, templatePath)
+		if err != nil {
+			v.Erro = err
+			out = append(out, v)
+			continue
+		}
+		n, err := contarSlides(data)
+		if err != nil {
+			v.Erro = err
+			out = append(out, v)
+			continue
+		}
+		v.Slides = n
+		if n < 2 {
+			v.Erro = fmt.Errorf("pacote com %d slide(s), esperado título + conteúdo", n)
+		}
+		out = append(out, v)
+	}
+	return out
+}
+
+func contarSlides(data []byte) (int, error) {
+	z, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, f := range z.File {
+		if strings.HasPrefix(f.Name, "ppt/slides/slide") && strings.HasSuffix(f.Name, ".xml") {
+			n++
+		}
+	}
+	return n, nil
 }
 
 // BackupArquivo copia o SQLite para <path>.bak-<timestamp>. Usado antes

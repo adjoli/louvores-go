@@ -571,3 +571,43 @@ func TestRelatorio_PuladosOrdemAlfabetica(t *testing.T) {
 		t.Fatalf("ordem alfabética esperada em:\n%s", rel)
 	}
 }
+
+func TestValidarSlides_PacoteIntegro(t *testing.T) {
+	conn := bancoTeste(t)
+	tpl := filepath.Join("..", "..", "data", "templates", "default.pptx")
+	if _, err := os.Stat(tpl); err != nil {
+		t.Skip("template ausente")
+	}
+	p := csvTemp(t, cabecalho+
+		`a,um.pptx,CC,1,T1,"Estrofe Um`+"\n"+`Segunda Linha",OK,`+"\n"+
+		`a,dois.pptx,CC,2,T2,"Outra`+"\n"+`  Refrao",OK,`+"\n")
+	linhas, err := LerCSV(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plano, err := Planejar(context.Background(), conn, linhas, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Importar(context.Background(), conn, plano, 100, nil); err != nil {
+		t.Fatal(err)
+	}
+	res := ValidarSlides(context.Background(), conn, tpl, plano.Prontos)
+	if len(res) != 2 {
+		t.Fatalf("res = %+v", res)
+	}
+	for _, v := range res {
+		if v.Erro != nil || v.Slides < 2 {
+			t.Fatalf("hino %s inválido: %+v", v.Chave, v)
+		}
+	}
+}
+
+func TestValidarSlides_TemplateAusente(t *testing.T) {
+	conn := bancoTeste(t)
+	res := ValidarSlides(context.Background(), conn, filepath.Join(t.TempDir(), "falta.pptx"),
+		[]Item{{Linha: Linha{Coletanea: "CC", Numero: 1}, Destino: Destino{HinoID: 1}}})
+	if len(res) != 1 || res[0].Erro == nil {
+		t.Fatalf("res = %+v", res)
+	}
+}
