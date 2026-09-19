@@ -114,6 +114,11 @@ func main() {
 	}
 	fmt.Println("backup em", backup)
 
+	if len(plano.Prontos) == 0 {
+		fmt.Println("nada a gravar.")
+		return
+	}
+
 	var prog func(feitos, total int)
 	if interativo {
 		bar, err := pterm.DefaultProgressbar.
