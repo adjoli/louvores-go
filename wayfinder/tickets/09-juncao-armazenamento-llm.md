@@ -1,7 +1,7 @@
 # Junção, armazenamento e papel do LLM
 
 - Tipo: `wayfinder:grilling` (HITL — Mateus + Adão)
-- Estado: aberto, não atribuído (bloqueado)
+- Estado: fechado (grilling sessão ETL, 09/2026)
 - Bloqueado por: [Heurística de refrão (detecção)](04-heuristica-refrao.md)
 
 ## Question
@@ -28,8 +28,10 @@ algum) um LLM tem nisso?
 
 ## Feito quando
 
-- [ ] Grilling trava, nesta ordem (junção→armazenamento→LLM): (a) regra de
-      junção, (b) refrão 1× ou N× no banco, (c) sem-LLM vs
-      LLM-classificador com guardrail explícito
-- [ ] Resposta registra as 3 decisões + exemplo antes/depois com 2 hinos
-      da evidência
+## Resolução (grilling, Mateus 09/2026)
+
+- Junção mínima: slides curtos consecutivos não-repetidos que somam
+  ≤8 linhas = mesma estrofe; slide com 4+ linhas não junta; nunca
+  junta com refrão candidato. Casos duvidosos ficam para o revisor.
+- Armazenamento: **N×** (convenção vigente, ex. CC 7).
+- **Sem LLM** na ETL (regra determinística + confirmação humana).

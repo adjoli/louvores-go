@@ -1,6 +1,7 @@
 package etl
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"path/filepath"
@@ -53,7 +54,7 @@ func TestLerCSV_OKePulados(t *testing.T) {
 	if len(linhas) != 2 {
 		t.Fatalf("linhas = %d, esperado 2", len(linhas))
 	}
-	if linhas[0].Colet != "CC" || linhas[0].Numero != 1 || linhas[0].NumLinha != 2 {
+	if linhas[0].Coletanea != "CC" || linhas[0].Numero != 1 || linhas[0].NumLinha != 2 {
 		t.Fatalf("linha 1 mal parseada: %+v", linhas[0])
 	}
 }
@@ -76,7 +77,7 @@ func TestPlanejar_ClassificaENovosModificadosErros(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas, true)
+	plano, err := Planejar(context.Background(), conn, linhas, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +86,7 @@ func TestPlanejar_ClassificaENovosModificadosErros(t *testing.T) {
 	}
 	novos, mods := 0, 0
 	for _, it := range plano.Prontos {
-		if it.D.TemLetra {
+		if it.Destino.TemLetra {
 			mods++
 		} else {
 			novos++
@@ -106,11 +107,11 @@ func TestImportar_EscreveTitleCaseERevisado(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas, true)
+	plano, err := Planejar(context.Background(), conn, linhas, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	n, err := Importar(conn, plano, 100, nil)
+	n, err := Importar(context.Background(), conn, plano, 100, nil)
 	if err != nil || n != 1 {
 		t.Fatalf("n=%d err=%v", n, err)
 	}
@@ -133,7 +134,7 @@ func TestImportar_RollbackDoLoteComFalha(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas, true)
+	plano, err := Planejar(context.Background(), conn, linhas, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +142,7 @@ func TestImportar_RollbackDoLoteComFalha(t *testing.T) {
 	if _, err := conn.Exec(`DELETE FROM hino WHERE numeracao = 2`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Importar(conn, plano, 1, nil); err == nil || !strings.Contains(err.Error(), "lote 2-2") {
+	if _, err := Importar(context.Background(), conn, plano, 1, nil); err == nil || !strings.Contains(err.Error(), "lote 2-2") {
 		t.Fatalf("esperava erro no lote 2-2, veio %v", err)
 	}
 	// Lote 1 (CC/1) commitado, lote 2 revertido: CC/2 segue inexistente.
@@ -187,7 +188,7 @@ func TestRelatorio_PorColetanea(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas, true)
+	plano, err := Planejar(context.Background(), conn, linhas, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +208,7 @@ func TestPlanejar_PulaQuemJaTemLetra(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas, false)
+	plano, err := Planejar(context.Background(), conn, linhas, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,15 +224,15 @@ func TestPlanejar_ForceSobrescreveEIdempotente(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas, false)
+	plano, err := Planejar(context.Background(), conn, linhas, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n, err := Importar(conn, plano, 100, nil); err != nil || n != 1 {
+	if n, err := Importar(context.Background(), conn, plano, 100, nil); err != nil || n != 1 {
 		t.Fatalf("n=%d err=%v", n, err)
 	}
 	// Re-planejar: agora tem letra → 0 prontos (idempotente).
-	plano2, err := Planejar(conn, linhas, false)
+	plano2, err := Planejar(context.Background(), conn, linhas, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,11 +240,11 @@ func TestPlanejar_ForceSobrescreveEIdempotente(t *testing.T) {
 		t.Fatalf("reexecução deveria ser vazia: %+v", plano2)
 	}
 	// Com --force, volta a ser modificável.
-	plano3, err := Planejar(conn, linhas, true)
+	plano3, err := Planejar(context.Background(), conn, linhas, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plano3.Prontos) != 1 || !plano3.Prontos[0].D.TemLetra {
+	if len(plano3.Prontos) != 1 || !plano3.Prontos[0].Destino.TemLetra {
 		t.Fatalf("force deveria liberar: %+v", plano3)
 	}
 }
@@ -257,7 +258,7 @@ func TestPlanejar_ChaveDuplicadaCSV(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas, false)
+	plano, err := Planejar(context.Background(), conn, linhas, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +277,7 @@ func TestPlanejar_ChaveDuplicadaBanco(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas, false)
+	plano, err := Planejar(context.Background(), conn, linhas, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +309,7 @@ func TestLerCSV_BOM(t *testing.T) {
 
 func TestImportar_LoteInvalido(t *testing.T) {
 	conn := bancoTeste(t)
-	if _, err := Importar(conn, &Plano{}, 0, nil); err == nil {
+	if _, err := Importar(context.Background(), conn, &Plano{}, 0, nil); err == nil {
 		t.Fatal("lote 0 deveria errar")
 	}
 }
@@ -344,14 +345,14 @@ func TestInspecionarBlocos(t *testing.T) {
 	if _, err := conn.Exec(`UPDATE hino SET letra = 'Estrofe Um' || char(10) || char(10) || '  Refrao Um', revisado = 1 WHERE numeracao = 1`); err != nil {
 		t.Fatal(err)
 	}
-	out, err := InspecionarBlocos(conn, "CC/1")
+	out, err := InspecionarBlocos(context.Background(), conn, "CC/1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out, "2 blocos") || !strings.Contains(out, "[refrao]") {
 		t.Fatalf("saída inesperada:\n%s", out)
 	}
-	if _, err := InspecionarBlocos(conn, "sem-barra"); err == nil {
+	if _, err := InspecionarBlocos(context.Background(), conn, "sem-barra"); err == nil {
 		t.Fatal("formato inválido deveria errar")
 	}
 }
@@ -369,14 +370,14 @@ func TestLerCSV_LinhaLongaEDupHeader(t *testing.T) {
 
 func TestImportar_PlanoNulo(t *testing.T) {
 	conn := bancoTeste(t)
-	if _, err := Importar(conn, nil, 10, nil); err == nil {
+	if _, err := Importar(context.Background(), conn, nil, 10, nil); err == nil {
 		t.Fatal("plano nulo deveria errar")
 	}
 }
 
 func TestInspecionarBlocos_NumeroInvalido(t *testing.T) {
 	conn := bancoTeste(t)
-	if _, err := InspecionarBlocos(conn, "CC/0"); err == nil {
+	if _, err := InspecionarBlocos(context.Background(), conn, "CC/0"); err == nil {
 		t.Fatal("número 0 deveria errar")
 	}
 }
@@ -401,7 +402,7 @@ func TestLerCSV_NumeroZeroRejeitado(t *testing.T) {
 
 func TestPlanejar_NumeroZeroConstruido(t *testing.T) {
 	conn := bancoTeste(t)
-	plano, err := Planejar(conn, []Linha{{Arquivo: "x", Colet: "CC", Numero: 0, Letra: "L", Status: "OK", NumLinha: 2}}, false)
+	plano, err := Planejar(context.Background(), conn, []Linha{{Arquivo: "x", Coletanea: "CC", Numero: 0, Letra: "L", Status: "OK", NumLinha: 2}}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,9 +413,9 @@ func TestPlanejar_NumeroZeroConstruido(t *testing.T) {
 
 func TestPlanejar_LetraVaziaEColetaneaInexistente(t *testing.T) {
 	conn := bancoTeste(t)
-	plano, err := Planejar(conn, []Linha{
-		{Arquivo: "x", Colet: "CC", Numero: 1, Letra: "   ", Status: "OK", NumLinha: 2},
-		{Arquivo: "y", Colet: "XX", Numero: 1, Letra: "L", Status: "OK", NumLinha: 3},
+	plano, err := Planejar(context.Background(), conn, []Linha{
+		{Arquivo: "x", Coletanea: "CC", Numero: 1, Letra: "   ", Status: "OK", NumLinha: 2},
+		{Arquivo: "y", Coletanea: "XX", Numero: 1, Letra: "L", Status: "OK", NumLinha: 3},
 	}, false)
 	if err != nil {
 		t.Fatal(err)
@@ -433,12 +434,12 @@ func TestImportar_ProgContaLotes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plano, err := Planejar(conn, linhas, true)
+	plano, err := Planejar(context.Background(), conn, linhas, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	chamadas := 0
-	if _, err := Importar(conn, plano, 1, func(feitos, total int) { chamadas++ }); err != nil {
+	if _, err := Importar(context.Background(), conn, plano, 1, func(feitos, total int) { chamadas++ }); err != nil {
 		t.Fatal(err)
 	}
 	if chamadas != 2 {
@@ -448,7 +449,7 @@ func TestImportar_ProgContaLotes(t *testing.T) {
 
 func TestRelatorio_TotalEPuladosPorCol(t *testing.T) {
 	plano := &Plano{
-		Prontos:       []Item{{L: Linha{Colet: "CC"}, D: Destino{TemLetra: true}}},
+		Prontos:       []Item{{Linha: Linha{Coletanea: "CC"}, Destino: Destino{TemLetra: true}}},
 		Pulados:       2,
 		PuladosPorCol: map[string]int{"CC": 1, "": 1},
 	}
@@ -462,17 +463,17 @@ func TestRelatorio_TotalEPuladosPorCol(t *testing.T) {
 
 func TestInspecionarBlocos_ErroSentinelaECorte(t *testing.T) {
 	conn := bancoTeste(t)
-	if _, err := InspecionarBlocos(conn, "CC/abc"); err == nil {
+	if _, err := InspecionarBlocos(context.Background(), conn, "CC/abc"); err == nil {
 		t.Fatal("deveria errar")
 	}
-	if _, err := InspecionarBlocos(conn, "CC/1"); err != nil {
+	if _, err := InspecionarBlocos(context.Background(), conn, "CC/1"); err != nil {
 		t.Fatal(err)
 	}
 	longa := strings.Repeat("á", 51)
 	if _, err := conn.Exec(`UPDATE hino SET letra = ? WHERE numeracao = 1`, longa+"\n  refrão"); err != nil {
 		t.Fatal(err)
 	}
-	out, err := InspecionarBlocos(conn, "CC/1")
+	out, err := InspecionarBlocos(context.Background(), conn, "CC/1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -494,7 +495,7 @@ func TestLerCSV_ArquivoInexistenteEMalformado(t *testing.T) {
 func TestImportar_BancoFechado(t *testing.T) {
 	conn := bancoTeste(t)
 	conn.Close()
-	if _, err := Importar(conn, &Plano{Prontos: []Item{{L: Linha{NumLinha: 2}, D: Destino{HinoID: 1}}}}, 10, nil); err == nil {
+	if _, err := Importar(context.Background(), conn, &Plano{Prontos: []Item{{Linha: Linha{NumLinha: 2}, Destino: Destino{HinoID: 1}}}}, 10, nil); err == nil {
 		t.Fatal("banco fechado deveria errar")
 	}
 }
@@ -513,10 +514,10 @@ func TestRelatorio_PlanoNulo(t *testing.T) {
 
 func TestInspecionarBlocos_NaoEncontrados(t *testing.T) {
 	conn := bancoTeste(t)
-	if _, err := InspecionarBlocos(conn, "XX/1"); err == nil {
+	if _, err := InspecionarBlocos(context.Background(), conn, "XX/1"); err == nil {
 		t.Fatal("coletânea inexistente deveria errar")
 	}
-	if _, err := InspecionarBlocos(conn, "CC/999"); err == nil {
+	if _, err := InspecionarBlocos(context.Background(), conn, "CC/999"); err == nil {
 		t.Fatal("hino inexistente deveria errar")
 	}
 }
@@ -531,8 +532,8 @@ func TestLerCSV_Vazio(t *testing.T) {
 func TestPlanejar_BancoFechado(t *testing.T) {
 	conn := bancoTeste(t)
 	conn.Close()
-	linhas := []Linha{{Arquivo: "x", Colet: "CC", Numero: 1, Letra: "L", Status: "OK", NumLinha: 2}}
-	if _, err := Planejar(conn, linhas, false); err == nil {
+	linhas := []Linha{{Arquivo: "x", Coletanea: "CC", Numero: 1, Letra: "L", Status: "OK", NumLinha: 2}}
+	if _, err := Planejar(context.Background(), conn, linhas, false); err == nil {
 		t.Fatal("banco fechado deveria errar")
 	}
 }

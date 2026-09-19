@@ -1,22 +1,22 @@
-// Command etl — TUI do operador para importar a planilha de revisão.
+// Command etl — CLI do operador para importar a planilha de revisão.
 //
-// Camada fina sobre internal/etl (toda lógica testável está lá): menu de
-// seleção, input de paths, dry-run obrigatório com overview, confirmação
-// e barra de progresso por lote. Somente SQLite local; NUNCA Turso/prod
-// (trava em internal/etl.RecusarBancoProd).
+// Camada fina sobre internal/etl (toda lógica testável está lá): menu em
+// texto puro (stdlib, sem dependência de TUI), input de paths, dry-run
+// obrigatório com overview, confirmação e progresso por lote. Somente
+// SQLite local; NUNCA Turso/prod (trava em internal/etl.RecusarBancoProd).
 //
 // Sem flags (-csv) abre o menu interativo. Com flags roda direto — útil
 // para testes e scripts (nesse modo a gravação exige -yes explícito).
 package main
 
 import (
+	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
-
-	"github.com/pterm/pterm"
 
 	"github.com/adjoli/louvores-go/internal/database"
 	"github.com/adjoli/louvores-go/internal/etl"
@@ -33,6 +33,7 @@ func main() {
 	check := flag.String("check", "", "exibe blocos parseados de CODIGO/NUM (ex. CC/36)")
 	flag.Parse()
 
+	ctx := context.Background()
 	csv, db := *csvPath, *dbPath
 	interativo := csv == ""
 	importarEscolhido := false
@@ -43,7 +44,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		importarEscolhido = strings.HasPrefix(acao, "Importar")
+		importarEscolhido = acao == "importar"
 	}
 	if err := etl.RecusarBancoProd(db); err != nil {
 		log.Fatal(err)
@@ -69,7 +70,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	plano, err := etl.Planejar(conn, linhas, *force)
+	plano, err := etl.Planejar(ctx, conn, linhas, *force)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -82,9 +83,8 @@ func main() {
 	}
 
 	// -check funciona também em dry-run (conferir antes de gravar).
-	mostrarCheck := *check != ""
-	if mostrarCheck {
-		out, err := etl.InspecionarBlocos(conn, *check)
+	if *check != "" {
+		out, err := etl.InspecionarBlocos(ctx, conn, *check)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -97,10 +97,7 @@ func main() {
 		return
 	}
 	if interativo {
-		ok, err := pterm.DefaultInteractiveConfirm.
-			WithDefaultValue(false).
-			Show(fmt.Sprintf("Gravar %d hinos? (backup será criado antes)", len(plano.Prontos)))
-		if err != nil || !ok {
+		if !confirma(fmt.Sprintf("Gravar %d hinos? (backup será criado antes) [s/N] ", len(plano.Prontos))) {
 			fmt.Println("cancelado.")
 			return
 		}
@@ -119,27 +116,9 @@ func main() {
 		return
 	}
 
-	var prog func(feitos, total int)
-	if interativo {
-		bar, err := pterm.DefaultProgressbar.
-			WithTotal(len(plano.Prontos)).
-			WithTitle("Importando").
-			Start()
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer bar.Stop()
-		ultimo := 0
-		prog = func(feitos, total int) {
-			bar.Add(feitos - ultimo)
-			ultimo = feitos
-		}
-	} else {
-		prog = func(feitos, total int) {
-			fmt.Printf("  lote: %d/%d\n", feitos, total)
-		}
-	}
-	n, err := etl.Importar(conn, plano, *lote, prog)
+	n, err := etl.Importar(ctx, conn, plano, *lote, func(feitos, total int) {
+		fmt.Printf("  lote: %d/%d\n", feitos, total)
+	})
 	if err != nil {
 		msg := fmt.Sprintf("%v (backup em %s)", err, backup)
 		if !*force {
@@ -148,34 +127,44 @@ func main() {
 		log.Fatal(msg)
 	}
 	fmt.Printf("GRAVADO: %d hinos em lotes de %d (backup em %s)\n", n, *lote, backup)
-
-	if *check != "" {
-		out, err := etl.InspecionarBlocos(conn, *check)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Print(out)
-	}
 }
 
-func menu() (string, string, string, error) {
-	acao, err := pterm.DefaultInteractiveSelect.
-		WithOptions([]string{"Importar CSV (dry-run + gravar)", "Validar CSV (só dry-run)"}).
-		Show()
+// menu exibe as ações numeradas e lê a escolha + paths do stdin.
+func menu() (acao, csv, db string, err error) {
+	in := bufio.NewReader(os.Stdin)
+	fmt.Println("1) Importar CSV (dry-run + gravar)")
+	fmt.Println("2) Validar CSV (só dry-run)")
+	fmt.Print("escolha [1-2]: ")
+	op, err := in.ReadString('\n')
 	if err != nil {
 		return "", "", "", err
 	}
-	csv, err := pterm.DefaultInteractiveTextInput.
-		WithDefaultText("caminho do CSV").
-		Show()
+	if strings.TrimSpace(op) == "1" {
+		acao = "importar"
+	} else {
+		acao = "validar"
+	}
+	fmt.Print("caminho do CSV: ")
+	csv, err = in.ReadString('\n')
 	if err != nil {
 		return "", "", "", err
 	}
-	db, err := pterm.DefaultInteractiveTextInput.
-		WithDefaultText("caminho do SQLite local").
-		Show()
+	fmt.Print("caminho do SQLite local: ")
+	db, err = in.ReadString('\n')
 	if err != nil {
 		return "", "", "", err
 	}
 	return acao, strings.TrimSpace(csv), strings.TrimSpace(db), nil
+}
+
+// confirma lê s/N do stdin (default N).
+func confirma(prompt string) bool {
+	fmt.Print(prompt)
+	in := bufio.NewReader(os.Stdin)
+	resp, err := in.ReadString('\n')
+	if err != nil {
+		return false
+	}
+	resp = strings.ToLower(strings.TrimSpace(resp))
+	return resp == "s" || resp == "sim" || resp == "y" || resp == "yes"
 }

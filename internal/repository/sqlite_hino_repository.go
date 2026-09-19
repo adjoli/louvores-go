@@ -214,10 +214,10 @@ func (r *SQLiteHinoRepository) ContarPorNumero(
 	return n, nil
 }
 
-// AtualizarLetraTx grava letra + revisado=1 do hino pelo ID interno, em
+// AtualizarLetra grava letra + revisado=1 do hino pelo ID interno, em
 // transação fornecida pelo chamador (a ETL controla os lotes).
 // Retorna ErrHinoNotFound se o ID não existir.
-func AtualizarLetraTx(
+func (r *SQLiteHinoRepository) AtualizarLetra(
 	ctx context.Context,
 	tx *sql.Tx,
 	id int64,

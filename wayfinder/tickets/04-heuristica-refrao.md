@@ -1,7 +1,7 @@
 # Heurística de refrão (detecção)
 
 - Tipo: `wayfinder:grilling` (HITL — Mateus + Adão)
-- Estado: aberto, não atribuído (bloqueado)
+- Estado: fechado (grilling sessão ETL, 09/2026)
 - Bloqueado por: [Formato esperado pelo banco](02-formato-esperado.md), [Padrões reais dos PPTs legados](03-padroes-ppts.md)
 
 ## Question
@@ -24,12 +24,12 @@ comparação para eleger o refrão candidato a partir dos slides legados?
 - O que fazer COM o refrão eleito (rejuntar estrofes partidas, gravar 1× ou
   N×, papel de LLM) vive em [Junção, armazenamento e papel do LLM](09-juncao-armazenamento-llm.md), não aqui.
 
-## Feito quando
+## Resolução (grilling, Mateus 09/2026 — versão simples, sem overthinking)
 
-- [ ] Grilling com Mateus/Adão trava: (a) limiar de repetição (ex. bloco
-      idêntico ≥2× = refrão candidato), (b) normalização antes de comparar
-      (caixa, espaços, pontuação, rodapés `N/M` e `IBRECEM` descartados),
-      (c) desempate quando há 2+ candidatos ou zero (ex. `Salmo 46`,
-      `Antífona`)
-- [ ] Resposta registra a regra de detecção + como cada um dos 4 casos da
-      evidência é classificado
+- Bloco idêntico **≥2×** (normalizado: caixa, espaços, pontuação;
+  rodapés descartados) = refrão. Zero repetição = sem refrão.
+- Empate = vence o **mais repetido**; persistindo, `titulo-ambiguo`
+  para o humano (sem regra de "mais curto").
+- A heurística **pré-marca** no `revisao-pack`; Gabriel/Jônatas
+  **confirmam** os 2 espaços na planilha (camada máquina-sugere,
+  humano-confirma).

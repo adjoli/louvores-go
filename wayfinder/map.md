@@ -32,6 +32,8 @@ ferramentas, importação segura), pronto para execução.
 - [Formato esperado pelo banco](tickets/02-formato-esperado.md): contrato verificado no código (incl. unitário vs lote com letra nil)
 - [Padrões reais dos PPTs legados](tickets/03-padroes-ppts.md): raio-X das 8 amostras + resumo transversal
 - [Extração dos .ppt binários (OLE)](tickets/08-extracao-ppt-ole.md): LibreOffice headless, 650/650 convertidos, texto em `corpus/txt/`, update levado ao Drive via `revisao-ole-update.csv`
+- [Heurística de refrão (detecção)](tickets/04-heuristica-refrao.md): ≥2× normalizado = refrão, zero = sem refrão, empate = mais repetido ou humano; máquina pré-marca, planilha confirma
+- [Junção, armazenamento e papel do LLM](tickets/09-juncao-armazenamento-llm.md): junção mínima ≤8 linhas, N× (convenção CC 7), sem LLM
 
 ## Not yet specified
 
