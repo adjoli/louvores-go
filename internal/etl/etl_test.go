@@ -94,6 +94,9 @@ func TestPlanejar_ClassificaENovosModificadosErros(t *testing.T) {
 	if novos != 1 || mods != 1 {
 		t.Fatalf("novos=%d modificados=%d, esperado 1 e 1", novos, mods)
 	}
+	if plano.Pulados != 1 || plano.PuladosPorCol["CC"] != 1 {
+		t.Fatalf("pulados=%d porCol=%v", plano.Pulados, plano.PuladosPorCol)
+	}
 }
 
 func TestImportar_EscreveTitleCaseERevisado(t *testing.T) {
@@ -138,8 +141,8 @@ func TestImportar_RollbackDoLoteComFalha(t *testing.T) {
 	if _, err := conn.Exec(`DELETE FROM hino WHERE numeracao = 2`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Importar(conn, plano, 1, nil); err == nil {
-		t.Fatal("esperava erro no lote 2")
+	if _, err := Importar(conn, plano, 1, nil); err == nil || !strings.Contains(err.Error(), "lote 2-2") {
+		t.Fatalf("esperava erro no lote 2-2, veio %v", err)
 	}
 	// Lote 1 (CC/1) commitado, lote 2 revertido: CC/2 segue inexistente.
 	var letra string
@@ -192,6 +195,9 @@ func TestRelatorio_PorColetanea(t *testing.T) {
 	if !strings.Contains(rel, "CC: novos=1 modificados=1") {
 		t.Fatalf("relatório inesperado:\n%s", rel)
 	}
+	if !strings.Contains(rel, "TOTAL prontos=2 (novos=1 modificados=1)") {
+		t.Fatalf("falta linha TOTAL em:\n%s", rel)
+	}
 }
 
 func TestPlanejar_PulaQuemJaTemLetra(t *testing.T) {
@@ -205,7 +211,7 @@ func TestPlanejar_PulaQuemJaTemLetra(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plano.Prontos) != 0 || plano.JaTem != 1 {
+	if len(plano.Prontos) != 0 || plano.JaTem != 1 || plano.Pulados != 1 {
 		t.Fatalf("plano = %+v", plano)
 	}
 }
@@ -372,5 +378,105 @@ func TestInspecionarBlocos_NumeroInvalido(t *testing.T) {
 	conn := bancoTeste(t)
 	if _, err := InspecionarBlocos(conn, "CC/0"); err == nil {
 		t.Fatal("número 0 deveria errar")
+	}
+}
+
+func TestLerCSV_SoCabecalho(t *testing.T) {
+	p := csvTemp(t, cabecalho)
+	linhas, err := LerCSV(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(linhas) != 0 {
+		t.Fatalf("linhas = %d, esperado 0", len(linhas))
+	}
+}
+
+func TestLerCSV_NumeroZeroRejeitado(t *testing.T) {
+	p := csvTemp(t, cabecalho+`a,z.pptx,CC,0,T,L,OK,`+"\n")
+	if _, err := LerCSV(p); err == nil {
+		t.Fatal("numero 0 deveria errar")
+	}
+}
+
+func TestPlanejar_NumeroZeroConstruido(t *testing.T) {
+	conn := bancoTeste(t)
+	plano, err := Planejar(conn, []Linha{{Arquivo: "x", Colet: "CC", Numero: 0, Letra: "L", Status: "OK", NumLinha: 2}}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plano.Erros != 1 {
+		t.Fatalf("plano = %+v", plano)
+	}
+}
+
+func TestPlanejar_LetraVaziaEColetaneaInexistente(t *testing.T) {
+	conn := bancoTeste(t)
+	plano, err := Planejar(conn, []Linha{
+		{Arquivo: "x", Colet: "CC", Numero: 1, Letra: "   ", Status: "OK", NumLinha: 2},
+		{Arquivo: "y", Colet: "XX", Numero: 1, Letra: "L", Status: "OK", NumLinha: 3},
+	}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plano.Erros != 2 {
+		t.Fatalf("plano = %+v", plano)
+	}
+}
+
+func TestImportar_ProgContaLotes(t *testing.T) {
+	conn := bancoTeste(t)
+	p := csvTemp(t, cabecalho+
+		`a,um.pptx,CC,1,T1,"L1",OK,`+"\n"+
+		`a,dois.pptx,CC,2,T2,"L2",OK,`+"\n")
+	linhas, err := LerCSV(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plano, err := Planejar(conn, linhas, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chamadas := 0
+	if _, err := Importar(conn, plano, 1, func(feitos, total int) { chamadas++ }); err != nil {
+		t.Fatal(err)
+	}
+	if chamadas != 2 {
+		t.Fatalf("prog chamado %dx, esperado 2", chamadas)
+	}
+}
+
+func TestRelatorio_TotalEPuladosPorCol(t *testing.T) {
+	plano := &Plano{
+		Prontos:       []Item{{L: Linha{Colet: "CC"}, D: Destino{TemLetra: true}}},
+		Pulados:       2,
+		PuladosPorCol: map[string]int{"CC": 1, "": 1},
+	}
+	rel := Relatorio(plano)
+	for _, want := range []string{"TOTAL prontos=1 (novos=0 modificados=1)", "pulados CC: 1", "(sem coletânea)"} {
+		if !strings.Contains(rel, want) {
+			t.Fatalf("falta %q em:\n%s", want, rel)
+		}
+	}
+}
+
+func TestInspecionarBlocos_ErroSentinelaECorte(t *testing.T) {
+	conn := bancoTeste(t)
+	if _, err := InspecionarBlocos(conn, "CC/abc"); err == nil {
+		t.Fatal("deveria errar")
+	}
+	if _, err := InspecionarBlocos(conn, "CC/1"); err != nil {
+		t.Fatal(err)
+	}
+	longa := strings.Repeat("á", 51)
+	if _, err := conn.Exec(`UPDATE hino SET letra = ? WHERE numeracao = 1`, longa+ "\n  refrão"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := InspecionarBlocos(conn, "CC/1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, strings.Repeat("á", 50)+"...") {
+		t.Fatalf("corte de 50 runes não aplicado:\n%s", out)
 	}
 }
