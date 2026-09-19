@@ -39,6 +39,17 @@ linguagem/ferramentas, onde roda, e como cada etapa é reproduzível?
   (candidato único acima do limiar E com margem; nunca autoaceito em
   `chave_db`).
 
+## Progresso (sessão ETL, 09/2026)
+
+- Protótipo funcional em `cmd/etl/main.go` (Go, sem deps novas): lê a
+  planilha, dry-run obrigatório (novos vs modificados vs pulados, por
+  coletânea), grava em transação única com `RowsAffected=1`, trava de
+  segurança (recusa `data/hinos.db`), `-check CODIGO/NUM` exibe blocos
+  parseados. Testado em `data/hinos-test.db` (clone, gitignored) com
+  `wayfinder/evidencia/amostra-revisao.csv` (3 hinos OK): CC/36 parseia em
+  estrofe/refrão/estrofe/refrão, Title Case igual ao manual, original
+  intacto, `go test ./...` verde.
+
 ## Feito quando
 
 - [ ] Protótipo (não a pipeline final): diagrama + esqueleto **separado do
