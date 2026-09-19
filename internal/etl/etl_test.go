@@ -349,3 +349,28 @@ func TestInspecionarBlocos(t *testing.T) {
 		t.Fatal("formato inválido deveria errar")
 	}
 }
+
+func TestLerCSV_LinhaLongaEDupHeader(t *testing.T) {
+	p := csvTemp(t, cabecalho+`a,um.pptx,CC,1,T1,"L1",OK,,EXTRA`+"\n")
+	if _, err := LerCSV(p); err == nil {
+		t.Fatal("linha longa deveria errar")
+	}
+	p2 := csvTemp(t, "arquivo,arquivo,hinario,numero,titulo,letra,status\n")
+	if _, err := LerCSV(p2); err == nil {
+		t.Fatal("cabeçalho duplicado deveria errar")
+	}
+}
+
+func TestImportar_PlanoNulo(t *testing.T) {
+	conn := bancoTeste(t)
+	if _, err := Importar(conn, nil, 10, nil); err == nil {
+		t.Fatal("plano nulo deveria errar")
+	}
+}
+
+func TestInspecionarBlocos_NumeroInvalido(t *testing.T) {
+	conn := bancoTeste(t)
+	if _, err := InspecionarBlocos(conn, "CC/0"); err == nil {
+		t.Fatal("número 0 deveria errar")
+	}
+}

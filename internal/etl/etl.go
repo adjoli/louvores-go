@@ -28,8 +28,16 @@ import (
 
 // Erros sentinela do CSV (erros como valores, casa com o repo).
 var (
-	ErrCSVVazio      = errors.New("csv vazio")
-	ErrColunaAusente = errors.New("coluna ausente")
+	ErrCSVVazio         = errors.New("csv vazio")
+	ErrColunaAusente    = errors.New("coluna ausente")
+	ErrCabecalhoDuplic  = errors.New("cabeçalho duplicado")
+	ErrLinhaInvalida    = errors.New("linha inválida")
+	ErrTamanhoLote      = errors.New("tamanho de lote inválido")
+	ErrBancoRecusado    = errors.New("banco recusado")
+	ErrChaveDuplicada   = errors.New("chave duplicada")
+	ErrDestinoAmbiguo   = errors.New("destino ambíguo no banco")
+	ErrDestinoAusente   = errors.New("destino ausente no banco")
+	ErrColetaneaAusente = errors.New("coletânea inexistente")
 )
 
 // Linha é uma linha da planilha de revisão.
@@ -89,7 +97,7 @@ func LerCSV(path string) ([]Linha, error) {
 		h = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(h)), "\ufeff")
 		h = strings.TrimSuffix(h, " original")
 		if _, dup := idx[h]; dup {
-			return nil, fmt.Errorf("cabeçalho duplicado %q: %w", h, ErrColunaAusente)
+			return nil, fmt.Errorf("cabeçalho duplicado %q: %w", h, ErrCabecalhoDuplic)
 		}
 		idx[h] = i
 	}
@@ -102,13 +110,13 @@ func LerCSV(path string) ([]Linha, error) {
 	var out []Linha
 	var elist []error
 	for i, r := range recs[1:] {
-		if len(r) < len(recs[0]) {
-			elist = append(elist, fmt.Errorf("linha %d: %d colunas, esperado %d", i+2, len(r), len(recs[0])))
+		if len(r) != len(recs[0]) {
+			elist = append(elist, fmt.Errorf("linha %d: %d colunas, esperado %d: %w", i+2, len(r), len(recs[0]), ErrLinhaInvalida))
 			continue
 		}
 		num, err := strconv.Atoi(strings.TrimSpace(r[idx["numero"]]))
 		if err != nil || num <= 0 {
-			elist = append(elist, fmt.Errorf("linha %d: número %q inválido", i+2, r[idx["numero"]]))
+			elist = append(elist, fmt.Errorf("linha %d: número %q inválido: %w", i+2, r[idx["numero"]], ErrLinhaInvalida))
 			continue
 		}
 		out = append(out, Linha{
@@ -152,16 +160,19 @@ func Planejar(conn *sql.DB, linhas []Linha, sobrescrever bool) (*Plano, error) {
 		if visto, dup := vistas[chave]; dup {
 			plano.Erros++
 			plano.Detalhes = append(plano.Detalhes,
-				fmt.Sprintf("linha %d (%s): chave %s duplicada no CSV (linhas %d e %d)", l.NumLinha, l.Arquivo, chave, visto, l.NumLinha))
+				fmt.Sprintf("linha %d (%s): chave %s duplicada no CSV (linhas %d e %d): %v", l.NumLinha, l.Arquivo, chave, visto, l.NumLinha, ErrChaveDuplicada))
 			continue
 		}
 		vistas[chave] = l.NumLinha
 		col, err := colets.FindByCodigo(ctx(), l.Colet)
 		if err != nil {
-			plano.Erros++
-			plano.Detalhes = append(plano.Detalhes,
-				fmt.Sprintf("linha %d (%s): coletânea %q inexistente", l.NumLinha, l.Arquivo, l.Colet))
-			continue
+			if errors.Is(err, repository.ErrColetaneaNotFound) {
+				plano.Erros++
+				plano.Detalhes = append(plano.Detalhes,
+					fmt.Sprintf("linha %d (%s): coletânea %q inexistente: %v", l.NumLinha, l.Arquivo, l.Colet, ErrColetaneaAusente))
+				continue
+			}
+			return nil, err
 		}
 		n, err := hinos.ContarPorNumero(ctx(), col.ID, l.Numero)
 		if err != nil {
@@ -170,13 +181,13 @@ func Planejar(conn *sql.DB, linhas []Linha, sobrescrever bool) (*Plano, error) {
 		if n == 0 {
 			plano.Erros++
 			plano.Detalhes = append(plano.Detalhes,
-				fmt.Sprintf("linha %d (%s): %s sem hino no banco", l.NumLinha, l.Arquivo, chave))
+				fmt.Sprintf("linha %d (%s): %s sem hino no banco: %v", l.NumLinha, l.Arquivo, chave, ErrDestinoAusente))
 			continue
 		}
 		if n > 1 {
 			plano.Erros++
 			plano.Detalhes = append(plano.Detalhes,
-				fmt.Sprintf("linha %d (%s): %s com %d hinos no banco (preflight)", l.NumLinha, l.Arquivo, chave, n))
+				fmt.Sprintf("linha %d (%s): %s com %d hinos no banco (preflight): %v", l.NumLinha, l.Arquivo, chave, n, ErrDestinoAmbiguo))
 			continue
 		}
 		h, err := hinos.FindByNumero(ctx(), col.ID, l.Numero)
@@ -206,8 +217,11 @@ func Planejar(conn *sql.DB, linhas []Linha, sobrescrever bool) (*Plano, error) {
 // para a barra de progresso; pode ser nil. A letra passa por
 // services.TitularLetra — texto idêntico ao da edição web.
 func Importar(conn *sql.DB, plano *Plano, tamanhoLote int, prog func(feitos, total int)) (int, error) {
+	if plano == nil {
+		return 0, fmt.Errorf("plano nulo")
+	}
 	if tamanhoLote < 1 {
-		return 0, fmt.Errorf("tamanho de lote %d inválido (use >= 1)", tamanhoLote)
+		return 0, fmt.Errorf("tamanho de lote %d inválido (use >= 1): %w", tamanhoLote, ErrTamanhoLote)
 	}
 	total := len(plano.Prontos)
 	gravados := 0
@@ -243,7 +257,10 @@ func importarLote(conn *sql.DB, itens []Item) (err error) {
 			return fmt.Errorf("linha %d: %w", it.L.NumLinha, err)
 		}
 	}
-	return tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // BackupArquivo copia o SQLite para <path>.bak-<timestamp>. Usado antes
@@ -278,17 +295,17 @@ func BackupArquivo(path string) (string, error) {
 // libsql/http e path vazio. O CLI só opera SQLite local de teste.
 func RecusarBancoProd(dbPath string) error {
 	if strings.TrimSpace(dbPath) == "" {
-		return fmt.Errorf("caminho do banco vazio")
+		return fmt.Errorf("caminho do banco vazio: %w", ErrBancoRecusado)
 	}
 	if strings.HasPrefix(dbPath, "libsql://") || strings.HasPrefix(dbPath, "http://") || strings.HasPrefix(dbPath, "https://") {
-		return fmt.Errorf("recusado: remoto (%s) — este CLI é só SQLite local", dbPath)
+		return fmt.Errorf("recusado: remoto (%s) — este CLI é só SQLite local: %w", dbPath, ErrBancoRecusado)
 	}
 	abs, err := filepath.Abs(dbPath)
 	if err != nil {
 		return err
 	}
 	if strings.HasSuffix(abs, string(filepath.Separator)+filepath.Join("data", "hinos.db")) {
-		return fmt.Errorf("recusado: este CLI nunca escreve em data/hinos.db (use uma cópia)")
+		return fmt.Errorf("recusado: este CLI nunca escreve em data/hinos.db (use uma cópia): %w", ErrBancoRecusado)
 	}
 	return nil
 }
@@ -296,6 +313,9 @@ func RecusarBancoProd(dbPath string) error {
 // Relatorio resume o plano: novos vs modificados por coletânea,
 // pulados por coletânea e erros.
 func Relatorio(plano *Plano) string {
+	if plano == nil {
+		return "plano nulo\n"
+	}
 	var sb strings.Builder
 	porCol := map[string][2]int{}
 	for _, it := range plano.Prontos {
@@ -319,13 +339,20 @@ func Relatorio(plano *Plano) string {
 		mods += porCol[k][1]
 	}
 	fmt.Fprintf(&sb, "TOTAL prontos=%d (novos=%d modificados=%d)\n", novos+mods, novos, mods)
-	pcols := make([]string, 0, len(plano.PuladosPorCol))
-	for k := range plano.PuladosPorCol {
-		pcols = append(pcols, k)
+	type par struct {
+		nome string
+		n    int
 	}
-	sort.Strings(pcols)
-	for _, k := range pcols {
-		fmt.Fprintf(&sb, "  pulados %s: %d\n", k, plano.PuladosPorCol[k])
+	var pares []par
+	for k, n := range plano.PuladosPorCol {
+		if k == "" {
+			k = "(sem coletânea)"
+		}
+		pares = append(pares, par{k, n})
+	}
+	sort.Slice(pares, func(i, j int) bool { return pares[i].nome < pares[j].nome })
+	for _, p := range pares {
+		fmt.Fprintf(&sb, "  pulados %s: %d\n", p.nome, p.n)
 	}
 	fmt.Fprintf(&sb, "pulados=%d (já tinham letra=%d) erros=%d\n", plano.Pulados, plano.JaTem, plano.Erros)
 	return sb.String()
@@ -338,9 +365,9 @@ func InspecionarBlocos(conn *sql.DB, alvo string) (string, error) {
 	if len(partes) != 2 {
 		return "", fmt.Errorf("-check no formato CODIGO/NUM")
 	}
-	num, err := strconv.Atoi(partes[1])
-	if err != nil {
-		return "", err
+	num, err := strconv.Atoi(strings.TrimSpace(partes[1]))
+	if err != nil || num <= 0 {
+		return "", fmt.Errorf("número %q inválido: %w", partes[1], ErrLinhaInvalida)
 	}
 	colets := repository.NewSQLiteColetaneaRepository(conn)
 	hinos := repository.NewSQLiteHinoRepository(conn)
@@ -361,8 +388,8 @@ func InspecionarBlocos(conn *sql.DB, alvo string) (string, error) {
 	fmt.Fprintf(&sb, "%s: %d blocos\n", alvo, len(seq.Partes))
 	for _, p := range seq.Partes {
 		primeira := strings.SplitN(p.Txt, "\n", 2)[0]
-		if len(primeira) > 50 {
-			primeira = primeira[:50]
+		if r := []rune(primeira); len(r) > 50 {
+			primeira = string(r[:50])
 		}
 		fmt.Fprintf(&sb, "  [%s] %s...\n", p.Tipo, primeira)
 	}

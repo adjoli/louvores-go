@@ -35,7 +35,7 @@ func main() {
 
 	csv, db := *csvPath, *dbPath
 	interativo := csv == ""
-	forcarDry := false
+	importarEscolhido := false
 	if interativo {
 		var err error
 		var acao string
@@ -43,13 +43,17 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		forcarDry = strings.HasPrefix(acao, "Validar")
+		importarEscolhido = strings.HasPrefix(acao, "Importar")
 	}
 	if err := etl.RecusarBancoProd(db); err != nil {
 		log.Fatal(err)
 	}
-	if _, err := os.Stat(db); err != nil && !*initDB {
-		log.Fatalf("banco %q não existe (use -init para criar)", db)
+	if _, err := os.Stat(db); err != nil {
+		if os.IsNotExist(err) && *initDB {
+			fmt.Println("banco inexistente — será criado (-init)")
+		} else {
+			log.Fatalf("banco %q inacessível (use -init para criar): %v", db, err)
+		}
 	}
 
 	linhas, err := etl.LerCSV(csv)
@@ -77,14 +81,25 @@ func main() {
 		log.Fatal("importação bloqueada: corrija os erros acima")
 	}
 
-	if *dryRun || forcarDry {
+	// -check funciona também em dry-run (conferir antes de gravar).
+	mostrarCheck := *check != ""
+	if mostrarCheck {
+		out, err := etl.InspecionarBlocos(conn, *check)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Print(out)
+	}
+
+	seco := *dryRun || (interativo && !importarEscolhido)
+	if seco {
 		fmt.Println("DRY-RUN: nada escrito.")
 		return
 	}
 	if interativo {
 		ok, err := pterm.DefaultInteractiveConfirm.
 			WithDefaultValue(false).
-			Show("Gravar " + itoa(len(plano.Prontos)) + " hinos? (backup será criado antes)")
+			Show(fmt.Sprintf("Gravar %d hinos? (backup será criado antes)", len(plano.Prontos)))
 		if err != nil || !ok {
 			fmt.Println("cancelado.")
 			return
@@ -121,7 +136,11 @@ func main() {
 	}
 	n, err := etl.Importar(conn, plano, *lote, prog)
 	if err != nil {
-		log.Fatalf("%v (backup em %s; re-rodar retoma — gravados viram pulados)", err, backup)
+		msg := fmt.Sprintf("%v (backup em %s)", err, backup)
+		if !*force {
+			msg += " — re-rodar retoma (gravados viram pulados)"
+		}
+		log.Fatal(msg)
 	}
 	fmt.Printf("GRAVADO: %d hinos em lotes de %d (backup em %s)\n", n, *lote, backup)
 
@@ -154,8 +173,4 @@ func menu() (string, string, string, error) {
 		return "", "", "", err
 	}
 	return acao, strings.TrimSpace(csv), strings.TrimSpace(db), nil
-}
-
-func itoa(n int) string {
-	return fmt.Sprintf("%d", n)
 }

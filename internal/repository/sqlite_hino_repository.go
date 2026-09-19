@@ -214,7 +214,7 @@ func (r *SQLiteHinoRepository) ContarPorNumero(
 	return n, nil
 }
 
-// AtualizarLetra grava letra + revisado=1 do hino pelo ID interno, em
+// AtualizarLetraTx grava letra + revisado=1 do hino pelo ID interno, em
 // transação fornecida pelo chamador (a ETL controla os lotes).
 // Retorna ErrHinoNotFound se o ID não existir.
 func AtualizarLetraTx(
@@ -236,6 +236,8 @@ func AtualizarLetraTx(
 	}
 	return nil
 }
+
+// StatsRow é a projeção de uma linha agregada por coletânea (resultado do
 // GROUP BY do SQL). Os campos derivados (não revisados, percentual) ficam
 // por conta da camada de serviços.
 type StatsRow struct {
