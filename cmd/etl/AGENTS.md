@@ -34,6 +34,12 @@ go run ./cmd/etl -csv revisao.csv -db copia.db -dry-run=false -yes -validar
 Sem flags abre menu interativo (`1` importar, `2` só validar).
 Trava de segurança: recusa `data/hinos.db`, URL remota e path vazio.
 
+## Performance (medido 09/2026)
+
+- Dry-run de 2282 linhas: <1s. Import + `-validar` de 50 hinos: <1s.
+- Dia-da-prod (~800, teto 2.2k): minutos no pior caso. Lotes de 100
+  por padrão (`-batch`); se o Turso engasgar, baixe para 25.
+
 ## Mutirão (quando chegarem slides novos)
 
 1. Jogue os `pptx`/`ppt`/`pps` numa pasta (ex. `corpus/novos/`).

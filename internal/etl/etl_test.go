@@ -3,6 +3,7 @@ package etl
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -212,7 +213,7 @@ func TestPlanejar_PulaQuemJaTemLetra(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plano.Prontos) != 0 || plano.JaTem != 1 || plano.Pulados != 1 {
+	if len(plano.Prontos) != 0 || plano.JaTem != 1 || plano.Pulados != 1 || plano.PuladosPorCol["CC"] != 1 {
 		t.Fatalf("plano = %+v", plano)
 	}
 }
@@ -380,6 +381,9 @@ func TestInspecionarBlocos_NumeroInvalido(t *testing.T) {
 	if _, err := InspecionarBlocos(context.Background(), conn, "CC/0"); err == nil {
 		t.Fatal("número 0 deveria errar")
 	}
+	if _, err := InspecionarBlocos(context.Background(), conn, "CC/abc"); !errors.Is(err, ErrLinhaInvalida) {
+		t.Fatalf("esperava ErrLinhaInvalida, veio %v", err)
+	}
 }
 
 func TestLerCSV_SoCabecalho(t *testing.T) {
@@ -406,7 +410,7 @@ func TestPlanejar_NumeroZeroConstruido(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plano.Erros != 1 {
+	if plano.Erros != 1 || !strings.Contains(plano.Detalhes[0], "incompletos") {
 		t.Fatalf("plano = %+v", plano)
 	}
 }
@@ -538,20 +542,6 @@ func TestPlanejar_BancoFechado(t *testing.T) {
 	}
 }
 
-func TestBackupArquivo_DuplicadoMesmoSegundo(t *testing.T) {
-	orig := filepath.Join(t.TempDir(), "banco.db")
-	if err := os.WriteFile(orig, []byte("dados"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := BackupArquivo(orig); err != nil {
-		t.Fatal(err)
-	}
-	// Segundo backup no mesmo segundo colide no O_EXCL (comportamento
-	// documentado: timestamp tem resolução de 1s).
-	_, err := BackupArquivo(orig)
-	t.Logf("segundo backup: %v", err)
-}
-
 func TestLerCSV_NumeroLinhaNoErro(t *testing.T) {
 	p := csvTemp(t, cabecalho+
 		`a,ok.pptx,CC,1,T,L,OK,`+"\n"+
@@ -609,5 +599,76 @@ func TestValidarSlides_TemplateAusente(t *testing.T) {
 		[]Item{{Linha: Linha{Coletanea: "CC", Numero: 1}, Destino: Destino{HinoID: 1}}})
 	if len(res) != 1 || res[0].Erro == nil {
 		t.Fatalf("res = %+v", res)
+	}
+}
+
+func TestImportar_RollbackParcialDentroDoLote(t *testing.T) {
+	conn := bancoTeste(t)
+	p := csvTemp(t, cabecalho+
+		`a,um.pptx,CC,1,T1,"L1",OK,`+"\n"+
+		`a,dois.pptx,CC,2,T2,"L2",OK,`+"\n")
+	linhas, err := LerCSV(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plano, err := Planejar(context.Background(), conn, linhas, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.Exec(`DELETE FROM hino WHERE numeracao = 2`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Importar(context.Background(), conn, plano, 2, nil); err == nil {
+		t.Fatal("esperava erro no lote")
+	}
+	var n int
+	if err := conn.QueryRow(`SELECT COUNT(*) FROM hino WHERE numeracao = 1 AND letra = 'L1'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatal("lote inteiro deveria ter revertido, incluindo CC/1")
+	}
+}
+
+func TestValidarSlides_NaoRevisadoEFalhaMista(t *testing.T) {
+	conn := bancoTeste(t)
+	tpl := filepath.Join("..", "..", "data", "templates", "default.pptx")
+	if _, err := os.Stat(tpl); err != nil {
+		t.Skip("template ausente")
+	}
+	if _, err := conn.Exec(`UPDATE hino SET letra = 'Estrofe', revisado = 0 WHERE numeracao = 1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.Exec(`UPDATE hino SET letra = 'Outra', revisado = 1 WHERE numeracao = 2`); err != nil {
+		t.Fatal(err)
+	}
+	res := ValidarSlides(context.Background(), conn, tpl, []Item{
+		{Linha: Linha{Coletanea: "CC", Numero: 2}, Destino: Destino{HinoID: 2}},
+		{Linha: Linha{Coletanea: "CC", Numero: 1}, Destino: Destino{HinoID: 1}},
+	})
+	if len(res) != 2 {
+		t.Fatalf("res = %+v", res)
+	}
+	if res[0].Erro != nil {
+		t.Fatalf("CC/2 deveria validar: %v", res[0].Erro)
+	}
+	if !strings.Contains(res[1].Erro.Error(), "revisado") || res[1].Chave != "CC/1" || res[1].Slides != 0 {
+		t.Fatalf("res[1] = %+v", res[1])
+	}
+}
+
+func TestPlanejar_NormalizaStatusEColetanea(t *testing.T) {
+	conn := bancoTeste(t)
+	p := csvTemp(t, cabecalho+`a,um.pptx,cc,1,T1,"L1", Ok ,`+"\n")
+	linhas, err := LerCSV(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plano, err := Planejar(context.Background(), conn, linhas, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plano.Prontos) != 1 || plano.Prontos[0].Linha.Coletanea != "CC" {
+		t.Fatalf("plano = %+v", plano)
 	}
 }
