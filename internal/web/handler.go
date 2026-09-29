@@ -7,7 +7,7 @@
 // Arquitetura das rotas:
 //   - "/stats"   → página completa de estatísticas (tabela embutida)
 //   - "/slides"  → página de geração de slides (?codigo= preenche a grade)
-//   - "/web/..." → fluxo de edição/salvamento do hino (GET form + POST PRG)
+//   - "/web/..." → fluxo de criação/edição/salvamento do hino (GET form + POST PRG)
 //   - "/static/" → arquivos estáticos (main.css mantido manualmente)
 //
 // Os handlers dependem apenas dos serviços (DI), nunca de HTTP interno para
@@ -72,6 +72,8 @@ func (w *Web) Routes() http.Handler {
 	mux.HandleFunc("POST /logout", w.handleLogout)
 	mux.HandleFunc("GET /stats", w.handleStatsPage)
 	mux.HandleFunc("GET /slides", w.handleSlidesPage)
+	mux.HandleFunc("GET /web/hinos/{codigo}/novo", w.handleNovoHinoPage)
+	mux.HandleFunc("POST /web/hinos/{codigo}", w.handleCriarHino)
 	mux.HandleFunc("GET /web/hinos/{codigo}/{numero}/editar", w.handleEditarHinoPage)
 	mux.HandleFunc("POST /web/hinos/{codigo}/{numero}", w.handleSalvarHino)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("internal/web/static"))))
@@ -169,9 +171,59 @@ func (w *Web) handleSlidesPage(wr http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := templates.SlidesPage(coletaneas, hinos, codigo, w.version, w.authSvc.Enabled()).Render(r.Context(), wr); err != nil {
+	permitirNovo := codigo == services.CodigoCorinhos
+	if err := templates.SlidesPage(coletaneas, hinos, codigo, permitirNovo, w.version, w.authSvc.Enabled()).Render(r.Context(), wr); err != nil {
 		slog.Error("renderizar página de geração de slides", "erro", err)
 	}
+}
+
+// handleNovoHinoPage serve o formulário de criação de um hino novo. A
+// funcionalidade só existe para a coletânea Corinhos; qualquer outra coletânea
+// responde 404 (o botão nem aparece na grade). A numeração é automática e não
+// é exibida como campo editável.
+func (w *Web) handleNovoHinoPage(wr http.ResponseWriter, r *http.Request) {
+	codigo := r.PathValue("codigo")
+	if codigo != services.CodigoCorinhos {
+		http.Error(wr, "novo hino não permitido nesta coletânea", http.StatusNotFound)
+		return
+	}
+
+	if err := templates.NovoHinoPage(codigo, w.version, w.authSvc.Enabled()).Render(r.Context(), wr); err != nil {
+		slog.Error("renderizar formulário de novo hino", "coletanea", codigo, "erro", err)
+	}
+}
+
+// handleCriarHino processa o POST do formulário de criação, calcula a
+// numeração automaticamente (na camada de serviço) e redireciona de volta
+// para a grade da coletânea (PRG). Aplica Title Case na letra.
+func (w *Web) handleCriarHino(wr http.ResponseWriter, r *http.Request) {
+	codigo := r.PathValue("codigo")
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(wr, "formulário inválido", http.StatusBadRequest)
+		return
+	}
+
+	novo := services.HinoCreate{
+		Titulo:   r.FormValue("titulo"),
+		Letra:    r.FormValue("letra"),
+		Creditos: r.FormValue("creditos"),
+		Revisado: r.FormValue("revisado") == "on",
+	}
+
+	if _, err := w.hinoSvc.CriarHino(r.Context(), codigo, novo); err != nil {
+		if errors.Is(err, repository.ErrColetaneaNotFound) || errors.Is(err, services.ErrNovoHinoNaoPermitido) {
+			http.Error(wr, "novo hino não permitido nesta coletânea", http.StatusNotFound)
+			return
+		}
+		slog.Error("criar hino", "coletanea", codigo, "erro", err)
+		http.Error(wr, "erro interno", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("hino criado", "coletanea", codigo)
+
+	http.Redirect(wr, r, "/slides?codigo="+codigo, http.StatusSeeOther)
 }
 
 // handleEditarHinoPage serve o formulário de edição de um hino, acessado pelo

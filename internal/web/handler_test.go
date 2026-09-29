@@ -410,3 +410,166 @@ func TestSalvarHinoRevisaoIrreversivel(t *testing.T) {
 		t.Error("revisado deveria permanecer true (irreversível)")
 	}
 }
+
+// setupWebCorinhos constrói a interface web com um banco em memória semeado
+// com a coletânea Corinhos e dois hinos (números 1 e 2), para os testes de
+// criação de hino. Retorna também a conexão *sql.DB.
+func setupWebCorinhos(t *testing.T) (*Web, *sql.DB) {
+	t.Helper()
+
+	conn, err := database.Open(":memory:")
+	if err != nil {
+		t.Fatalf("abrir banco: %v", err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	if err := database.Migrate(conn); err != nil {
+		t.Fatalf("migrar: %v", err)
+	}
+
+	ctx := context.Background()
+	coletaneaRepo := repository.NewSQLiteColetaneaRepository(conn)
+	coletanea := &models.Coletanea{Codigo: services.CodigoCorinhos, Titulo: "Corinhos"}
+	if err := coletaneaRepo.Create(ctx, coletanea); err != nil {
+		t.Fatalf("criar coletânea: %v", err)
+	}
+
+	hinoRepo := repository.NewSQLiteHinoRepository(conn)
+	for _, n := range []int{1, 2} {
+		numero := n
+		if err := hinoRepo.Create(ctx, &models.Hino{
+			ColetaneaID: coletanea.ID,
+			Numeracao:   &numero,
+			Titulo:      "Corinho Existente",
+		}); err != nil {
+			t.Fatalf("criar hino %d: %v", n, err)
+		}
+	}
+
+	hinoSvc := services.NewHinoService(hinoRepo, coletaneaRepo, "")
+	statsSvc := services.NewStatsService(hinoRepo)
+	authSvc := auth.New(&config.Config{SessionSecret: "test-secret", SessionTTL: time.Hour})
+
+	return New(nil, hinoSvc, statsSvc, authSvc, testVersion), conn
+}
+
+// TestNovoHinoPageCorinhos serve o formulário de criação para a coletânea
+// Corinhos, sem campo de numeração manual.
+func TestNovoHinoPageCorinhos(t *testing.T) {
+	w, _ := setupWebCorinhos(t)
+
+	req := httptest.NewRequest("GET", "/web/hinos/COR/novo", nil)
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, esperado 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Adicionar Hino") {
+		t.Error("página não contém o título 'Adicionar Hino'")
+	}
+	if !strings.Contains(body, `name="titulo"`) || !strings.Contains(body, `name="letra"`) {
+		t.Error("formulário não contém os campos titulo/letra")
+	}
+	if strings.Contains(body, `name="numeracao"`) {
+		t.Error("formulário não deveria ter campo de numeração manual")
+	}
+}
+
+// TestNovoHinoPageNaoPermitido retorna 404 para coletâneas que não são Corinhos.
+func TestNovoHinoPageNaoPermitido(t *testing.T) {
+	w, _ := setupWeb(t) // coletânea CC
+
+	req := httptest.NewRequest("GET", "/web/hinos/CC/novo", nil)
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+
+	if rec.Code != 404 {
+		t.Fatalf("status = %d, esperado 404", rec.Code)
+	}
+}
+
+// TestCriarHinoCorinhos submete o formulário e verifica o redirecionamento
+// (303) e a criação com numeração sequencial (maior + 1) e Title Case.
+func TestCriarHinoCorinhos(t *testing.T) {
+	w, conn := setupWebCorinhos(t)
+
+	form := url.Values{
+		"titulo":   {"Novo Corinho"},
+		"letra":    {"letra em minúsculas"},
+		"creditos": {"Autor"},
+		"revisado": {"on"},
+	}
+	req := httptest.NewRequest("POST", "/web/hinos/COR", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+
+	if rec.Code != 303 {
+		t.Fatalf("status = %d, esperado 303 (See Other)", rec.Code)
+	}
+
+	hinoSvc := services.NewHinoService(
+		repository.NewSQLiteHinoRepository(conn),
+		repository.NewSQLiteColetaneaRepository(conn),
+		"",
+	)
+	hino, err := hinoSvc.ObterHino(context.Background(), services.CodigoCorinhos, 3)
+	if err != nil {
+		t.Fatalf("ObterHino: %v", err)
+	}
+	if hino.Titulo != "Novo Corinho" {
+		t.Errorf("titulo = %q", hino.Titulo)
+	}
+	if hino.Numeracao == nil || *hino.Numeracao != 3 {
+		t.Errorf("numeracao = %v, esperado 3 (maior 2 + 1)", hino.Numeracao)
+	}
+	if hino.Letra == nil || *hino.Letra != "Letra Em Minúsculas" {
+		t.Errorf("letra = %v, esperado Title Case", hino.Letra)
+	}
+}
+
+// TestCriarHinoNaoPermitido rejeita o POST de criação em coletânea comum.
+func TestCriarHinoNaoPermitido(t *testing.T) {
+	w, _ := setupWeb(t) // coletânea CC
+
+	form := url.Values{"titulo": {"Proibido"}}
+	req := httptest.NewRequest("POST", "/web/hinos/CC", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+
+	if rec.Code != 404 {
+		t.Fatalf("status = %d, esperado 404", rec.Code)
+	}
+}
+
+// TestSlidesBotaoAdicionar garante que o botão "Adicionar hino" só aparece
+// para a coletânea Corinhos.
+func TestSlidesBotaoAdicionar(t *testing.T) {
+	w, _ := setupWebCorinhos(t)
+
+	req := httptest.NewRequest("GET", "/slides?codigo=COR", nil)
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, esperado 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "/web/hinos/COR/novo") {
+		t.Error("página de Corinhos não exibe o botão 'Adicionar hino'")
+	}
+	if !strings.Contains(rec.Body.String(), "bg-emerald-600") {
+		t.Error("botão 'Adicionar hino' não usa o estilo de botão (bg-emerald-600)")
+	}
+
+	// Na coletânea comum (CC) o botão não deve aparecer.
+	wc, _ := setupWeb(t)
+	req = httptest.NewRequest("GET", "/slides?codigo=CC", nil)
+	rec = httptest.NewRecorder()
+	wc.Routes().ServeHTTP(rec, req)
+
+	if strings.Contains(rec.Body.String(), "/web/hinos/CC/novo") {
+		t.Error("página de coletânea comum não deveria exibir o botão 'Adicionar hino'")
+	}
+}

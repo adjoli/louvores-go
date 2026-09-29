@@ -65,6 +65,8 @@ Interface web (HTML via templ, servida no mesmo binário):
 | `POST` | `/logout` | invalida o cookie de sessão e redireciona (303) para `/login` |
 | `GET` | `/stats` | página de estatísticas (tabela embutida no HTML) |
 | `GET` | `/slides` | página de geração de slides (seletor de coletânea; `?codigo=` preenche a grade de hinos) |
+| `GET` | `/web/hinos/{codigo}/novo` | formulário de criação de hino (apenas Corinhos; 404 nas demais) |
+| `POST` | `/web/hinos/{codigo}` | cria o hino (numeração automática = maior + 1) e redireciona (303) para `/slides?codigo={codigo}` |
 | `GET` | `/web/hinos/{codigo}/{numero}/editar` | formulário de edição do hino (título, letra, créditos, revisão) |
 | `POST` | `/web/hinos/{codigo}/{numero}` | persiste as alterações do hino (Title Case na letra) e redireciona (303) para `/slides` |
 | `GET` | `/static/` | arquivos estáticos (main.css, logo/ícones) |
@@ -73,8 +75,9 @@ As rotas web são mais específicas que o `/` e, por isso, têm prioridade no
 mux raiz: a API é delegada para `/` e as páginas web para os caminhos acima.
 `main.go` combina ambos via `web.New(apiHandler, hinoSvc, statsSvc, authSvc, version)`.
 O mux inteiro é envolvido pelo middleware de autenticação (`internal/auth`).
-A rota `POST /web/hinos/{codigo}/{numero}` é o primeiro ponto de escrita da
-aplicação (os demais endpoints continuam somente leitura).
+As rotas `POST /web/hinos/{codigo}` e `POST /web/hinos/{codigo}/{numero}` são
+os pontos de escrita da aplicação (os demais endpoints continuam somente
+leitura).
 
 Variáveis de ambiente (com defaults): `DB_PATH` (`data/hinos.db`), `TURSO_DATABASE_URL` (vazio = SQLite local), `TURSO_AUTH_TOKEN` (vazio; obrigatório quando a URL do Turso está definida), `TEMPLATE_PATH` (`data/templates/default.pptx`), `LOG_PATH` (`logs/app.log`), `HOST` (vazio = todas as interfaces), `PORT` (`8080`), `AUTH_PASSWORD` (vazio = auth desligada), `SESSION_SECRET` (vazio = chave aleatória em runtime), `COOKIE_SECURE` (`false`), `SESSION_TTL` (`24h`). `.env` opcional.
 
@@ -90,15 +93,15 @@ internal/
     db.go                   SQLite (database/sql + modernc) e Turso (libsql-client-go), DDL idempotente
   models/models.go          structs Coletanea, Hino
   repository/               Repositórios por entidade (única camada que fala SQL)
-    hino_repository.go      CRUD + ListByColetanea, FindByNumero, StatsPorColetanea
+    hino_repository.go      CRUD + ListByColetanea, FindByNumero, MaxNumeracao, StatsPorColetanea
     coletanea_repository.go CRUD + FindByCodigo
     errors.go               ErrHinoNotFound / ErrColetaneaNotFound (wrap sql.ErrNoRows)
-  services/                 hino (leitura + atualização de hinos), stats — recebem repos via DI
+  services/                 hino (leitura + criação/atualização de hinos), stats — recebem repos via DI
   api/                      Handlers HTTP finos → JSON; erros → 400/404/500
   version/                  Versão do binário (injetada via -ldflags, ver Makefile)
   web/
     handler.go              Interface web: mux raiz (API em "/" + páginas/static) + login/logout
-    templates/*.templ       Views templ (layout base + stats + slides + editar + login) → _templ.go gerado
+    templates/*.templ       Views templ (layout base + stats + slides + novo + editar + login) → _templ.go gerado
     static/                 main.css (mantido manualmente, sem build) + logo/ícones PNG
   domain/slide_parts.go     TipoParte, ParteHino, SequenciaHino
   processors/lyrics_parser.go  Letra → estrofes/refrões (por indentação)
@@ -109,7 +112,7 @@ internal/
 
 Fluxo da API: HTTP (internal/api) → Services → Repository → SQLite (ou Turso, quando `TURSO_DATABASE_URL` está definida). Erros como valores (sentinelas `repository.ErrHinoNotFound`, `repository.ErrColetaneaNotFound`). Escrita (edição de hinos via interface web; geração de slides via download) ocorre sobre os mesmos serviços/repositórios.
 
-Fluxo da interface web: HTTP (internal/web) → middleware de autenticação (internal/auth; libera `/login`, `/api/healthz` e `/static/`) → Services (mesmos serviços da API, sem chamada HTTP interna) → Templates templ (HTML completo já com os dados). A página `/stats` renderiza a tabela de estatísticas embutida no HTML. A página `/slides` apresenta um seletor de coletânea; a seleção usa um formulário que faz `GET /slides?codigo=` e recarrega a página com a grade de hinos já renderizada. A edição de um hino segue o fluxo PRG (Post/Redirect/Get): `GET /web/hinos/{codigo}/{numero}/editar` renderiza o formulário e `POST /web/hinos/{codigo}/{numero}` persiste (via `HinoService.AtualizarHino`, que aplica Title Case na letra e mantém revisão irreversível) e redireciona (303) para `/slides`.
+Fluxo da interface web: HTTP (internal/web) → middleware de autenticação (internal/auth; libera `/login`, `/api/healthz` e `/static/`) → Services (mesmos serviços da API, sem chamada HTTP interna) → Templates templ (HTML completo já com os dados). A página `/stats` renderiza a tabela de estatísticas embutida no HTML. A página `/slides` apresenta um seletor de coletânea; a seleção usa um formulário que faz `GET /slides?codigo=` e recarrega a página com a grade de hinos já renderizada. A edição de um hino segue o fluxo PRG (Post/Redirect/Get): `GET /web/hinos/{codigo}/{numero}/editar` renderiza o formulário e `POST /web/hinos/{codigo}/{numero}` persiste (via `HinoService.AtualizarHino`, que aplica Title Case na letra e mantém revisão irreversível) e redireciona (303) para `/slides`. A criação de hino segue o mesmo fluxo: o botão "Adicionar hino" (visível apenas com Corinhos selecionada) leva a `GET /web/hinos/{codigo}/novo`; `POST /web/hinos/{codigo}` cria o hino via `HinoService.CriarHino` (numeração automática) e redireciona (303) para `/slides?codigo={codigo}`.
 
 ## Convenções
 
@@ -124,6 +127,7 @@ Fluxo da interface web: HTTP (internal/web) → middleware de autenticação (in
 - **Versão** (`internal/version`): variáveis `Version`/`Commit`/`Date` injetadas via `-ldflags -X` no `make build`; `String()` formata (com ou sem commit/data). A versão flui de `main.go` → `web.New` → `Layout` (rodapé).
 - **Cards de hinos** (`slides.templ`): exibidos em grade responsiva de até 8 colunas em telas largas (`grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8`); `auto-rows-fr` + `h-full` no card garantem **altura uniforme** entre linhas. Cada card tem conteúdo **centralizado** (`items-center text-center`), mostra numeração em destaque (`%03d`, fonte maior que o título) e o título na linha abaixo. No **rodapé do card** (linha `mt-auto flex items-center justify-center`, empurrada para a base), há os ícones de ação: `edit.png` (edição, sempre visível, aponta para `/web/hinos/{codigo}/{numero}/editar`) e `ppt.png` (gerar slide, apenas hinos revisados) — ambos em `internal/web/static/`, servidos em `/static/`, com `aria-label`. O `ppt.png` aponta para `/api/coletaneas/{codigo}/hinos/{numero}/slides`. Cor de fundo por estado do hino — sem letra `#FFB7B2`, letra não revisada `#FFF5BA`, revisado `#B5EAD7` — aplicada via `style` inline (cores fora do palette padrão, por isso inline).
 - **Edição de hinos** (`editar.templ` + `HinoService.AtualizarHino`): formulário com título, letra (textarea), créditos e checkbox "revisado". Número e coletânea vêm da rota (não editáveis). A letra é convertida para Title Case antes de salvar (`titularLetra`, preservando indentação de refrões e texto já em caixa mista). Revisão é **irreversível**: se o hino já é revisado, o checkbox fica `disabled` e o serviço mantém `Revisado=true` mesmo se o formulário o enviar desmarcado. Uso de `templ.Component` + render via `Render(ctx, w)`; o POST segue PRG (303 → `/slides`).
+- **Criação de hinos** (`novo.templ` + `HinoService.CriarHino`): permitida **apenas** na coletânea Corinhos (`services.CodigoCorinhos` = `COR`); qualquer outra resulta em `services.ErrNovoHinoNaoPermitido` (→ 404 no handler). A numeração é **automática** (`MaxNumeracao` da coletânea + 1) e não há campo de numeração no formulário. A letra é normalizada para Title Case e campos vazios viram `nil` (estado "sem letra"). O botão "Adicionar hino" só aparece na grade `/slides` quando `codigo=COR`.
 - **Quebras de linha**: o textarea do formulário pode enviar CRLF (`\r\n`). `HinoService.titularLetra` e `processors.ProcessarHino` normalizam para LF (`normalizeNewlines`), evitando linha em branco extra nos slides. Ordem: `\r\n` → `\n` primeiro, depois `\r` isolado.
 - **Blocos**: separados por linha em branco (`\n\s*\n`).
 - **Rodapé**: `N/total` no placeholder body de índice 10 (`sz="quarter"`) do template.

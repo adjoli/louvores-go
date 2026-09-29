@@ -5,10 +5,11 @@ Geração automatizada de slides PowerPoint para hinos e louvores cristãos a pa
 ## Funcionalidades
 
 - API REST de leitura sobre o banco de hinos
-- Interface web (templ) consumindo a API — ver estatísticas e slides
+- Interface web (templ) sobre os mesmos serviços — ver estatísticas, listar e gerenciar hinos/slides
 - Estatísticas por coletânea (percentual de hinos com letra e percentual de revisados sobre os que têm letra)
 - Separação inteligente de estrofes e refrões por indentação
 - Edição de hinos pela interface web (título, letra com Title Case, créditos e revisão irreversível)
+- Criação de hinos pela interface web, disponível apenas na coletânea Corinhos, com numeração automática (último + 1)
 - Geração e download de slides (PPTX) a partir de um template único, preservando todas as partes do template
 - Revisão de letras (aprovação) — implementada na edição, irreversível
 - Autenticação por senha única compartilhada, com sessão em cookie assinado (HMAC) e tela de login
@@ -65,11 +66,15 @@ Uma interface web HTML é servida no mesmo binário, em `http://localhost:8080/`
 | `POST /logout` | invalida o cookie de sessão e redireciona (303) para `/login` |
 | `GET /stats` | página de estatísticas (tabela embutida no HTML) |
 | `GET /slides` | página de geração de slides (seletor de coletânea; `?codigo=` preenche a grade de hinos) |
+| `GET /web/hinos/{codigo}/novo` | formulário de criação de hino (apenas Corinhos; 404 nas demais) |
+| `POST /web/hinos/{codigo}` | cria o hino (numeração automática = maior + 1) e redireciona (303) para `/slides?codigo={codigo}` |
 | `GET /web/hinos/{codigo}/{numero}/editar` | formulário de edição do hino (título, letra, créditos, revisão) |
 | `POST /web/hinos/{codigo}/{numero}` | persiste as alterações do hino e redireciona (303) para `/slides` |
 | `GET /static/` | arquivos estáticos (main.css, logo/ícones) |
 
-A página `/stats` renderiza a tabela de estatísticas diretamente no HTML. A página `/slides` exibe um combobox de coletâneas; ao selecionar e enviar o formulário (`GET /slides?codigo=`), a página recarrega com a grade de cards dos hinos (responsiva, até 8 colunas, altura uniforme, conteúdo centralizado). Cada card mostra a numeração em destaque (três dígitos, fonte maior que o título) com o título abaixo, e cor de fundo por estado (sem letra `#FFB7B2`, não revisado `#FFF5BA`, revisado `#B5EAD7`). No rodapé do card há os ícones de ação: edição (`edit.png`, abre o formulário de edição) e geração de slide (`ppt.png`, apenas hinos revisados, apontando para o endpoint de download). Na edição, a letra é convertida para **Title Case** antes de salvar, e a revisão é **irreversível** (checkbox desabilitado para hinos já revisados). Os handlers web reutilizam os mesmos serviços da API (sem chamada HTTP interna). Detalhes em `AGENTS.md`.
+A página `/stats` renderiza a tabela de estatísticas diretamente no HTML. A página `/slides` exibe um combobox de coletâneas; ao selecionar e enviar o formulário (`GET /slides?codigo=`), a página recarrega com a grade de cards dos hinos (responsiva, até 8 colunas, altura uniforme, conteúdo centralizado). Cada card mostra a numeração em destaque (três dígitos, fonte maior que o título) com o título abaixo, e cor de fundo por estado (sem letra `#FFB7B2`, não revisado `#FFF5BA`, revisado `#B5EAD7`). No rodapé do card há os ícones de ação: edição (`edit.png`, abre o formulário de edição) e geração de slide (`ppt.png`, apenas hinos revisados, apontando para o endpoint de download). Na edição, a letra é convertida para **Title Case** antes de salvar, e a revisão é **irreversível** (checkbox desabilitado para hinos já revisados).
+
+A criação de hino é permitida **apenas na coletânea Corinhos** (`COR`): com ela selecionada, a grade exibe o botão "Adicionar hino" que leva a `GET /web/hinos/{codigo}/novo`. O formulário não tem campo de numeração — o serviço atribui automaticamente a próxima numeração (maior existente + 1) e aplica Title Case na letra. Os handlers web reutilizam os mesmos serviços da API (sem chamada HTTP interna). Detalhes em `AGENTS.md`.
 
 ### Geração de slides
 

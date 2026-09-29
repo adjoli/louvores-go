@@ -23,6 +23,16 @@ func (e *hinoNotReviewedError) Error() string {
 	return "hino não revisado: slides só podem ser gerados para hinos revisados"
 }
 
+// ErrNovoHinoNaoPermitido é retornado quando se tenta adicionar um hino a uma
+// coletânea que não aceita inclusão manual (apenas Corinhos permite).
+var ErrNovoHinoNaoPermitido = &novoHinoNaoPermitidoError{}
+
+type novoHinoNaoPermitidoError struct{}
+
+func (e *novoHinoNaoPermitidoError) Error() string {
+	return "novo hino só é permitido na coletânea Corinhos"
+}
+
 // HinoService concentra as operações de leitura sobre coletâneas e hinos.
 //
 // Ele resolve a navegação pela chave de negócio (código da coletânea +
@@ -139,6 +149,69 @@ func (s *HinoService) AtualizarHino(
 	}
 
 	return hino, nil
+}
+
+// HinoCreate carrega os campos editáveis de um hino novo enviados pelo
+// formulário web. A numeração é calculada automaticamente pelo serviço
+// (maior numeração existente + 1) e não é fornecida pelo formulário.
+type HinoCreate struct {
+	Titulo   string
+	Letra    string
+	Creditos string
+	Revisado bool
+}
+
+// CriarHino adiciona um hino novo à coletânea identificada pelo código,
+// atribuindo automaticamente a próxima numeração (maior existente + 1).
+//
+// A inclusão só é permitida na coletânea Corinhos (código COR); qualquer
+// outra coletânea resulta em ErrNovoHinoNaoPermitido. A letra é convertida
+// para Title Case antes de salvar. Campos de texto vazios são gravados como
+// NULL, preservando o estado "sem letra" exibido pelos cards.
+// Retorna repository.ErrColetaneaNotFound se o código não existir.
+func (s *HinoService) CriarHino(
+	ctx context.Context,
+	codigoColetanea string,
+	novo HinoCreate,
+) (*models.Hino, error) {
+	coletanea, err := s.coletaneaRepo.FindByCodigo(ctx, codigoColetanea)
+	if err != nil {
+		return nil, err
+	}
+
+	if coletanea.Codigo != CodigoCorinhos {
+		return nil, ErrNovoHinoNaoPermitido
+	}
+
+	max, err := s.hinoRepo.MaxNumeracao(ctx, coletanea.ID)
+	if err != nil {
+		return nil, err
+	}
+	numero := max + 1
+
+	hino := &models.Hino{
+		ColetaneaID: coletanea.ID,
+		Numeracao:   &numero,
+		Titulo:      novo.Titulo,
+		Letra:       textoOpcional(titularLetra(novo.Letra)),
+		Creditos:    textoOpcional(novo.Creditos),
+		Revisado:    novo.Revisado,
+	}
+
+	if err := s.hinoRepo.Create(ctx, hino); err != nil {
+		return nil, err
+	}
+
+	return hino, nil
+}
+
+// textoOpcional converte uma string vazia (ou só espaços) em nil, preservando
+// a semântica de campo opcional do modelo (ex.: Letra nil = "sem letra").
+func textoOpcional(s string) *string {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return &s
 }
 
 // GerarSlides gera o arquivo PPTX com os slides do hino.
@@ -297,10 +370,11 @@ func zipArquivos(arquivos []ArquivoGerado) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// codigoCorinhos é o código curto da coletânea "Corinhos". Para essa coletânea
+// CodigoCorinhos é o código curto da coletânea "Corinhos". Para essa coletânea
 // o subtítulo do slide de título fica vazio e os slides de conteúdo mantêm o
-// título original (sem prefixo da coletânea).
-const codigoCorinhos = "COR"
+// título original (sem prefixo da coletânea). Também é a única coletânea em que
+// é permitido adicionar hinos novos.
+const CodigoCorinhos = "COR"
 
 // textosSlides define o que é exibido nos slides: o título do primeiro slide,
 // o texto abaixo dele (subtítulo) e o título dos slides de conteúdo.
@@ -317,7 +391,7 @@ func textosSlides(c models.Coletanea, h models.Hino) (titulo, subtitulo, tituloS
 
 	subtitulo = ""
 	tituloSlides = h.Titulo
-	if c.Codigo != codigoCorinhos {
+	if c.Codigo != CodigoCorinhos {
 		subtitulo = fmt.Sprintf("%s - %d", titleCase(c.Titulo), numero)
 		tituloSlides = fmt.Sprintf("%d%s - %s", numero, c.Codigo, h.Titulo)
 	}
