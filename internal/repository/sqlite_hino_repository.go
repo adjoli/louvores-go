@@ -280,6 +280,28 @@ func (r *SQLiteHinoRepository) ListByColetanea(
 	return hinos, nil
 }
 
+// MaxNumeracao retorna a maior numeração cadastrada na coletânea informada,
+// ou 0 se a coletânea ainda não tiver hinos. É usada para calcular a próxima
+// numeração de um hino novo (MAX + 1). O MAX ignora valores NULL, por isso o
+// COALESCE cobre a coletânea vazia.
+func (r *SQLiteHinoRepository) MaxNumeracao(
+	ctx context.Context,
+	coletaneaID int64,
+) (int, error) {
+	var max int
+
+	err := r.db.QueryRowContext(
+		ctx,
+		"SELECT COALESCE(MAX(numeracao), 0) FROM hino WHERE coletanea_id = ?",
+		coletaneaID,
+	).Scan(&max)
+	if err != nil {
+		return 0, err
+	}
+
+	return max, nil
+}
+
 // FindByNumero busca um hino pela combinação de coletânea e numeração —
 // a chave de negócio usada na interface (ex.: CC/42).
 // Retorna ErrHinoNotFound se não houver hino correspondente.

@@ -56,7 +56,7 @@ func Layout(title string, version string, autenticado bool, children templ.Compo
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/static/main.css?v=4\"></head><body class=\"min-h-screen bg-slate-100 text-slate-900 antialiased\"><header class=\"border-b border-slate-200 bg-white\"><div class=\"mx-auto flex max-w-5xl items-center gap-4 px-4 py-3\"><a href=\"/\" class=\"flex items-center gap-2\"><img src=\"/static/logo.png\" alt=\"Louvores\" class=\"h-11 w-auto object-contain\"> <span class=\"text-xl font-bold text-indigo-700\">Louvores</span></a><nav class=\"flex items-center gap-4 text-sm text-slate-600\"><a href=\"/stats\" class=\"hover:text-indigo-700\">Estatísticas</a> <a href=\"/slides\" class=\"hover:text-indigo-700\">Slides</a> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/static/main.css?v=5\"></head><body class=\"min-h-screen bg-slate-100 text-slate-900 antialiased\"><header class=\"border-b border-slate-200 bg-white\"><div class=\"mx-auto flex max-w-5xl items-center gap-4 px-4 py-3\"><a href=\"/\" class=\"flex items-center gap-2\"><img src=\"/static/logo.png\" alt=\"Louvores\" class=\"h-11 w-auto object-contain\"> <span class=\"text-xl font-bold text-indigo-700\">Louvores</span></a><nav class=\"flex items-center gap-4 text-sm text-slate-600\"><a href=\"/stats\" class=\"hover:text-indigo-700\">Estatísticas</a> <a href=\"/slides\" class=\"hover:text-indigo-700\">Slides</a> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

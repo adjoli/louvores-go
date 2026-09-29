@@ -23,16 +23,17 @@ import (
 
 // SlidesPage renderiza a página de geração de slides com o seletor de
 // coletânea e a grade de hinos (preenchida se houver codigo). selecionada é
-// o código da coletânea corrente ("" antes de selecionar). version é exibida
+// o código da coletânea corrente ("" antes de selecionar). permitirNovo
+// habilita o botão "Adicionar hino" (apenas para Corinhos). version é exibida
 // no rodapé.
-templ SlidesPage(coletaneas []models.Coletanea, hinos []models.Hino, selecionada string, version string, autenticado bool) {
-	@Layout("Geração de Slides · Louvores", version, autenticado, slidesContent(coletaneas, hinos, selecionada))
+templ SlidesPage(coletaneas []models.Coletanea, hinos []models.Hino, selecionada string, permitirNovo bool, version string, autenticado bool) {
+	@Layout("Geração de Slides · Louvores", version, autenticado, slidesContent(coletaneas, hinos, selecionada, permitirNovo))
 }
 
 // slidesContent monta o formulário de seleção da coletânea e a grade de
 // hinos. O formulário faz GET em /slides enviando ?codigo=, recarregando a
 // página com a grade já renderizada.
-templ slidesContent(coletaneas []models.Coletanea, hinos []models.Hino, selecionada string) {
+templ slidesContent(coletaneas []models.Coletanea, hinos []models.Hino, selecionada string, permitirNovo bool) {
 	<h1 class="mb-6 text-2xl font-bold text-slate-800">Geração de Slides</h1>
 
 	<form method="get" action="/slides" class="mb-6">
@@ -62,6 +63,16 @@ templ slidesContent(coletaneas []models.Coletanea, hinos []models.Hino, selecion
 	</form>
 
 	if selecionada != "" {
+		if permitirNovo {
+			<div class="mb-4">
+				<a
+					href={ fmt.Sprintf("/web/hinos/%s/novo", selecionada) }
+					class="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+				>
+					+ Adicionar hino
+				</a>
+			</div>
+		}
 		@HinosGrid(hinos, selecionada)
 	} else {
 		<div class="min-h-16 text-sm text-slate-400">

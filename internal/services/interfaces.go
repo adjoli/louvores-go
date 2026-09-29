@@ -9,11 +9,14 @@ import (
 
 // HinoRepository define as operações de persistência de hinos usadas em
 // produção. Implementada por repository.SQLiteHinoRepository.
-// A interface expõe apenas leitura e Update (edição via interface web);
-// Create/Delete ficam restritos ao repositório concreto.
+// A interface expõe leitura, Update (edição via interface web) e Create
+// (inclusão de hinos em coletâneas que permitem, ex.: Corinhos). Delete
+// continua restrito ao repositório concreto.
 type HinoRepository interface {
 	ListByColetanea(ctx context.Context, coletaneaID int64) ([]models.Hino, error)
 	FindByNumero(ctx context.Context, coletaneaID int64, numero int) (*models.Hino, error)
+	Create(ctx context.Context, hino *models.Hino) error
+	MaxNumeracao(ctx context.Context, coletaneaID int64) (int, error)
 	Update(ctx context.Context, hino *models.Hino) error
 	StatsPorColetanea(ctx context.Context) ([]repository.StatsRow, error)
 }

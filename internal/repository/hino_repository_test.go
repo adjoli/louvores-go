@@ -376,6 +376,44 @@ func TestHinoRepositoryFindByNumeroNotFound(t *testing.T) {
 	}
 }
 
+func TestHinoRepositoryMaxNumeracao(t *testing.T) {
+	coletaneaRepo, hinoRepo := newTestRepositories(t)
+	ctx := context.Background()
+
+	coletanea := testColetanea()
+	if err := coletaneaRepo.Create(ctx, &coletanea); err != nil {
+		t.Fatalf("Create(Coletanea): %v", err)
+	}
+
+	max, err := hinoRepo.MaxNumeracao(ctx, coletanea.ID)
+	if err != nil {
+		t.Fatalf("MaxNumeracao(empty): %v", err)
+	}
+	if max != 0 {
+		t.Errorf("MaxNumeracao(empty) = %d, want 0", max)
+	}
+
+	first := testHino(coletanea.ID)
+	first.Numeracao = intPtr(5)
+	if err := hinoRepo.Create(ctx, &first); err != nil {
+		t.Fatalf("Create(first): %v", err)
+	}
+
+	second := testHino(coletanea.ID)
+	second.Numeracao = intPtr(9)
+	if err := hinoRepo.Create(ctx, &second); err != nil {
+		t.Fatalf("Create(second): %v", err)
+	}
+
+	max, err = hinoRepo.MaxNumeracao(ctx, coletanea.ID)
+	if err != nil {
+		t.Fatalf("MaxNumeracao(): %v", err)
+	}
+	if max != 9 {
+		t.Errorf("MaxNumeracao() = %d, want 9", max)
+	}
+}
+
 func TestHinoRepositoryStatsPorColetanea(t *testing.T) {
 	coletaneaRepo, hinoRepo := newTestRepositories(t)
 	ctx := context.Background()
