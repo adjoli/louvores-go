@@ -2,7 +2,8 @@
 *.exe
 *.test
 *.out
-louvores
+/louvores
+/etl
 
 docs/
 
@@ -16,6 +17,8 @@ docs/
 # Saída e logs
 output/
 logs/
+corpus/
+wayfinder/
 
 # Ambiente
 .env
