@@ -357,3 +357,105 @@ func TestParidadeRotasSpec(t *testing.T) {
 		}
 	}
 }
+
+// TestJSONParidadeSemCampoImportado garante que o campo interno Importado não
+// vaza no contrato JSON público da API.
+func TestJSONParidadeSemCampoImportado(t *testing.T) {
+	handler := newTestHandler(t)
+
+	res := doRequest(handler, http.MethodGet, "/api/coletaneas/CC/hinos")
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", res.Code)
+	}
+
+	var hinos []map[string]any
+	if err := json.Unmarshal(res.Body.Bytes(), &hinos); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(hinos) == 0 {
+		t.Fatal("esperado ao menos 1 hino")
+	}
+
+	chavesEsperadas := map[string]bool{
+		"id":           true,
+		"coletanea_id": true,
+		"numeracao":    true,
+		"titulo":       true,
+		"letra":        true,
+		"creditos":     true,
+		"revisado":     true,
+	}
+
+	for _, h := range hinos {
+		if _, ok := h["importado"]; ok {
+			t.Errorf("campo 'importado' vazou no JSON público: %+v", h)
+		}
+		for k := range h {
+			if !chavesEsperadas[k] {
+				t.Errorf("chave inesperada no JSON: %q", k)
+			}
+		}
+	}
+}
+
+// TestGerarSlidesUnreviewedRetorna400 garante que hinos não revisados retornam 400
+// com ErrHinoNotReviewed, e que hinos revisados permitem o download.
+func TestGerarSlidesUnreviewedRetorna400(t *testing.T) {
+	conn, err := database.Open(":memory:")
+	if err != nil {
+		t.Fatalf("abrir banco: %v", err)
+	}
+	defer conn.Close()
+	if err := database.Migrate(conn); err != nil {
+		t.Fatalf("migrar: %v", err)
+	}
+
+	ctx := context.Background()
+	coletaneaRepo := repository.NewSQLiteColetaneaRepository(conn)
+	coletanea := &models.Coletanea{Codigo: "CC", Titulo: "Cantor Cristão"}
+	if err := coletaneaRepo.Create(ctx, coletanea); err != nil {
+		t.Fatalf("criar coletanea: %v", err)
+	}
+
+	hinoRepo := repository.NewSQLiteHinoRepository(conn)
+	num := 42
+	letra := "Estrofe um\n\n    Refrão"
+	hino := &models.Hino{
+		ColetaneaID: coletanea.ID,
+		Numeracao:   &num,
+		Titulo:      "Grandioso Pai",
+		Letra:       &letra,
+		Revisado:    false,
+	}
+	if err := hinoRepo.Create(ctx, hino); err != nil {
+		t.Fatalf("criar hino: %v", err)
+	}
+
+	hinoSvc := services.NewHinoService(hinoRepo, coletaneaRepo, "../../data/templates/default.pptx")
+	statsSvc := services.NewStatsService(hinoRepo)
+	handler := New(hinoSvc, statsSvc).Routes()
+
+	// 1. Não revisado deve retornar 409
+	res := doRequest(handler, http.MethodGet, "/api/coletaneas/CC/hinos/42/slides")
+	if res.Code != http.StatusConflict {
+		t.Fatalf("status = %d, esperado 409 para hino não revisado", res.Code)
+	}
+	if !strings.Contains(res.Body.String(), "não revisado") {
+		t.Errorf("corpo = %q, esperado mensagem de não revisado", res.Body.String())
+	}
+
+	// 2. Revisado deve retornar 200 com PPTX
+	hino.Revisado = true
+	if err := hinoRepo.Update(ctx, hino); err != nil {
+		t.Fatalf("marcar revisado: %v", err)
+	}
+
+	resRev := doRequest(handler, http.MethodGet, "/api/coletaneas/CC/hinos/42/slides")
+	if resRev.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperado 200 para hino revisado", resRev.Code)
+	}
+	if ct := resRev.Header().Get("Content-Type"); ct != "application/vnd.openxmlformats-officedocument.presentationml.presentation" {
+		t.Errorf("Content-Type = %q", ct)
+	}
+}
+

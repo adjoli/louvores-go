@@ -410,3 +410,152 @@ func TestSalvarHinoRevisaoIrreversivel(t *testing.T) {
 		t.Error("revisado deveria permanecer true (irreversível)")
 	}
 }
+
+func TestSeloImportadoCardsEEdicao(t *testing.T) {
+	w, conn := setupWeb(t)
+
+	// Adiciona import_batch e import_log ativo para o hino 2
+	if _, err := conn.Exec(`
+		INSERT INTO import_batch (batch_id, manifest_sha256) VALUES ('batch1', 'sha1');
+		INSERT INTO import_log (batch_id, manifest_sha256, hino_id, codigo, numero, titulo_destino, letra_nova, creditos_alterados)
+		SELECT 'batch1', 'sha1', id, 'CC', 2, 'Com Letra Não Revisado', 'Letra nova', 0
+		FROM hino WHERE coletanea_id = 1 AND numeracao = 2;
+	`); err != nil {
+		t.Fatalf("inserir import_log: %v", err)
+	}
+
+	badge := `<span class="import-badge">Letra importada — confira</span>`
+
+	// 1. GET /slides?codigo=CC: badge deve aparecer no card do hino 2, e não nos outros
+	req := httptest.NewRequest("GET", "/slides?codigo=CC", nil)
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("GET /slides status = %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, badge) {
+		t.Fatalf("GET /slides deveria conter o selo de importação: %s", body)
+	}
+	if strings.Count(body, "Letra importada — confira") != 1 {
+		t.Errorf("selo de importação deveria aparecer exatamente 1 vez na grade de hinos, apareceu %d", strings.Count(body, "Letra importada — confira"))
+	}
+
+	// 2. GET /web/hinos/CC/2/editar: formulário deve exibir o selo
+	reqEdit := httptest.NewRequest("GET", "/web/hinos/CC/2/editar", nil)
+	recEdit := httptest.NewRecorder()
+	w.Routes().ServeHTTP(recEdit, reqEdit)
+	if recEdit.Code != 200 {
+		t.Fatalf("GET /web/hinos/CC/2/editar status = %d", recEdit.Code)
+	}
+	if !strings.Contains(recEdit.Body.String(), badge) {
+		t.Errorf("edição do hino 2 deveria conter o selo: %s", recEdit.Body.String())
+	}
+
+	// 3. GET /web/hinos/CC/1/editar e CC/3/editar: não devem exibir o selo
+	for _, num := range []string{"1", "3"} {
+		reqOutro := httptest.NewRequest("GET", "/web/hinos/CC/"+num+"/editar", nil)
+		recOutro := httptest.NewRecorder()
+		w.Routes().ServeHTTP(recOutro, reqOutro)
+		if strings.Contains(recOutro.Body.String(), badge) {
+			t.Errorf("edição do hino %s não deveria conter o selo", num)
+		}
+	}
+
+	// 4. Salvar sem marcar revisado mantém o selo
+	form := url.Values{
+		"titulo":   {"Com Letra Não Revisado Editado"},
+		"letra":    {"Estrofe editada\n\n    Refrão"},
+		"creditos": {"Autor"},
+	}
+	reqPost := httptest.NewRequest("POST", "/web/hinos/CC/2", strings.NewReader(form.Encode()))
+	reqPost.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recPost := httptest.NewRecorder()
+	w.Routes().ServeHTTP(recPost, reqPost)
+	if recPost.Code != 303 {
+		t.Fatalf("POST status = %d, esperado 303", recPost.Code)
+	}
+
+	recAposSalvar := httptest.NewRecorder()
+	w.Routes().ServeHTTP(recAposSalvar, httptest.NewRequest("GET", "/slides?codigo=CC", nil))
+	if !strings.Contains(recAposSalvar.Body.String(), badge) {
+		t.Error("após salvar sem revisar, o selo deveria continuar visível na grade")
+	}
+
+	// 5. Salvar marcando revisado esconde o selo
+	formRevisar := url.Values{
+		"titulo":   {"Com Letra Agora Revisado"},
+		"letra":    {"Estrofe editada\n\n    Refrão"},
+		"creditos": {"Autor"},
+		"revisado": {"on"},
+	}
+	reqPostRev := httptest.NewRequest("POST", "/web/hinos/CC/2", strings.NewReader(formRevisar.Encode()))
+	reqPostRev.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recPostRev := httptest.NewRecorder()
+	w.Routes().ServeHTTP(recPostRev, reqPostRev)
+	if recPostRev.Code != 303 {
+		t.Fatalf("POST status = %d, esperado 303", recPostRev.Code)
+	}
+
+	recAposRevisar := httptest.NewRecorder()
+	w.Routes().ServeHTTP(recAposRevisar, httptest.NewRequest("GET", "/slides?codigo=CC", nil))
+	if strings.Contains(recAposRevisar.Body.String(), "Letra importada — confira") {
+		t.Error("após revisar o hino, o selo deveria desaparecer da grade")
+	}
+
+	recEditAposRevisar := httptest.NewRecorder()
+	w.Routes().ServeHTTP(recEditAposRevisar, httptest.NewRequest("GET", "/web/hinos/CC/2/editar", nil))
+	if strings.Contains(recEditAposRevisar.Body.String(), "Letra importada — confira") {
+		t.Error("após revisar o hino, o selo deveria desaparecer do formulário de edição")
+	}
+}
+
+func TestSeloImportadoRevertidoOuSemConteudo(t *testing.T) {
+	w, conn := setupWeb(t)
+
+	// Adiciona import_log para hino 1 (que não tem letra) e hino 2 (revertido)
+	if _, err := conn.Exec(`
+		INSERT INTO import_batch (batch_id, manifest_sha256) VALUES ('batch1', 'sha1');
+		INSERT INTO import_log (batch_id, manifest_sha256, hino_id, codigo, numero, titulo_destino, letra_nova, creditos_alterados)
+		SELECT 'batch1', 'sha1', id, 'CC', 1, 'Sem Letra', 'Letra', 0
+		FROM hino WHERE coletanea_id = 1 AND numeracao = 1;
+
+		INSERT INTO import_log (batch_id, manifest_sha256, hino_id, codigo, numero, titulo_destino, letra_nova, creditos_alterados, revertido_em)
+		SELECT 'batch1', 'sha1', id, 'CC', 2, 'Com Letra Revertido', 'Letra', 0, '2026-10-18 00:00:00'
+		FROM hino WHERE coletanea_id = 1 AND numeracao = 2;
+	`); err != nil {
+		t.Fatalf("inserir logs: %v", err)
+	}
+
+	// Nem hino 1 (sem letra) nem hino 2 (revertido) devem exibir o selo
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, httptest.NewRequest("GET", "/slides?codigo=CC", nil))
+	if strings.Contains(rec.Body.String(), "Letra importada — confira") {
+		t.Error("hino sem letra ou import revertido não devem exibir selo")
+	}
+}
+
+func TestCardCorFundoSemConteudo(t *testing.T) {
+	w, conn := setupWeb(t)
+
+	// Atualiza hino 2 para ter letra apenas com whitespace ASCII
+	if _, err := conn.Exec(`UPDATE hino SET letra = ? WHERE coletanea_id = 1 AND numeracao = 2`, "   \t\n   "); err != nil {
+		t.Fatalf("update whitespace letra: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	w.Routes().ServeHTTP(rec, httptest.NewRequest("GET", "/slides?codigo=CC", nil))
+	body := rec.Body.String()
+
+	// Hino 1 (nil) e Hino 2 (whitespace) devem ter cor de fundo #FFB7B2 (sem letra)
+	countSemLetra := strings.Count(body, "background-color: #FFB7B2")
+	if countSemLetra != 2 {
+		t.Errorf("esperado 2 cards com background-color: #FFB7B2 (nil e whitespace), encontrado %d", countSemLetra)
+	}
+
+	// Hino 3 (revisado) deve ter #B5EAD7
+	if !strings.Contains(body, "background-color: #B5EAD7") {
+		t.Error("hino 3 (revisado) deveria ter background-color: #B5EAD7")
+	}
+}
+

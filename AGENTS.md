@@ -82,6 +82,7 @@ Variáveis de ambiente (com defaults): `DB_PATH` (`data/hinos.db`), `TURSO_DATAB
 
 ```
 cmd/louvores/main.go        Entrypoint: app.New → servidor HTTP + shutdown
+cmd/etl/main.go             CLI offline do operador: preparação/consumo de manifesto, inspeção e exportação SQL
 internal/
   config/                   Paths + env (DB, TEMPLATE, LOG, HOST, PORT, AUTH) + Addr()
   logging/                  slog → arquivo + console
@@ -90,10 +91,11 @@ internal/
     db.go                   SQLite (database/sql + modernc) e Turso (libsql-client-go), DDL idempotente
   models/models.go          structs Coletanea, Hino
   repository/               Repositórios por entidade (única camada que fala SQL)
-    hino_repository.go      CRUD + ListByColetanea, FindByNumero, StatsPorColetanea
-    coletanea_repository.go CRUD + FindByCodigo
+    sqlite_hino_repository.go      CRUD + ListByColetanea, FindByNumero, StatsPorColetanea
+    sqlite_coletanea_repository.go CRUD + FindByCodigo
     errors.go               ErrHinoNotFound / ErrColetaneaNotFound (wrap sql.ErrNoRows)
   services/                 hino (leitura + atualização de hinos), stats — recebem repos via DI
+  etl/                      Serviços de ETL: manifesto, leitura de CSV, validação OOXML e exportação SQL
   api/                      Handlers HTTP finos → JSON; erros → 400/404/500
   version/                  Versão do binário (injetada via -ldflags, ver Makefile)
   web/
@@ -122,17 +124,29 @@ Fluxo da interface web: HTTP (internal/web) → middleware de autenticação (in
 - **Detecção de refrão**: todas as linhas do bloco começam com espaço/tab → refrão (indentação removida); senão → estrofe.
 - **Interface web**: views `templ` em `internal/web/templates`; o `Layout(title, version, autenticado, children)` é o esqueleto HTML base (classes utilitárias definidas em `main.css`); a `version` é exibida no rodapé (`v{version}`) e `autenticado` controla o botão "Sair" no cabeçalho. As páginas são servidas como HTML completo, já com os dados embutidos no render (sem HTMX). Os arquivos gerados (`_templ.go`) são commitados; para regenerá-los use `templ generate ./...`. O `main.css` é mantido manualmente.
 - **Versão** (`internal/version`): variáveis `Version`/`Commit`/`Date` injetadas via `-ldflags -X` no `make build`; `String()` formata (com ou sem commit/data). A versão flui de `main.go` → `web.New` → `Layout` (rodapé).
-- **Cards de hinos** (`slides.templ`): exibidos em grade responsiva de até 8 colunas em telas largas (`grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8`); `auto-rows-fr` + `h-full` no card garantem **altura uniforme** entre linhas. Cada card tem conteúdo **centralizado** (`items-center text-center`), mostra numeração em destaque (`%03d`, fonte maior que o título) e o título na linha abaixo. No **rodapé do card** (linha `mt-auto flex items-center justify-center`, empurrada para a base), há os ícones de ação: `edit.png` (edição, sempre visível, aponta para `/web/hinos/{codigo}/{numero}/editar`) e `ppt.png` (gerar slide, apenas hinos revisados) — ambos em `internal/web/static/`, servidos em `/static/`, com `aria-label`. O `ppt.png` aponta para `/api/coletaneas/{codigo}/hinos/{numero}/slides`. Cor de fundo por estado do hino — sem letra `#FFB7B2`, letra não revisada `#FFF5BA`, revisado `#B5EAD7` — aplicada via `style` inline (cores fora do palette padrão, por isso inline).
-- **Edição de hinos** (`editar.templ` + `HinoService.AtualizarHino`): formulário com título, letra (textarea), créditos e checkbox "revisado". Número e coletânea vêm da rota (não editáveis). A letra é convertida para Title Case antes de salvar (`titularLetra`, preservando indentação de refrões e texto já em caixa mista). Revisão é **irreversível**: se o hino já é revisado, o checkbox fica `disabled` e o serviço mantém `Revisado=true` mesmo se o formulário o enviar desmarcado. Uso de `templ.Component` + render via `Render(ctx, w)`; o POST segue PRG (303 → `/slides`).
-- **Quebras de linha**: o textarea do formulário pode enviar CRLF (`\r\n`). `HinoService.titularLetra` e `processors.ProcessarHino` normalizam para LF (`normalizeNewlines`), evitando linha em branco extra nos slides. Ordem: `\r\n` → `\n` primeiro, depois `\r` isolado.
-- **Blocos**: separados por linha em branco (`\n\s*\n`).
+- **Cards de hinos** (`slides.templ`): exibidos em grade responsiva de até 8 colunas em telas largas (`grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8`); `auto-rows-fr` + `h-full` no card garantem **altura uniforme** entre linhas. Cada card tem conteúdo **centralizado** (`items-center text-center`), mostra numeração em destaque (`%03d`, fonte maior que o título) e o título na linha abaixo. Hinos importados pendentes de revisão humana exibem o selo temporário e acessível `.import-badge` ("Letra importada — confira") entre o título e os botões. No **rodapé do card** (linha `mt-auto flex items-center justify-center`, empurrada para a base), há os ícones de ação: `edit.png` (edição, sempre visível, aponta para `/web/hinos/{codigo}/{numero}/editar`) e `ppt.png` (gerar slide, apenas hinos revisados) — ambos em `internal/web/static/`, servidos em `/static/`, com `aria-label`. O `ppt.png` aponta para `/api/coletaneas/{codigo}/hinos/{numero}/slides`. Cor de fundo por estado do hino — sem letra `#FFB7B2`, letra não revisada `#FFF5BA`, revisado `#B5EAD7` — aplicada via `style` inline (cores fora do palette padrão, por isso inline).
+- **Edição de hinos** (`editar.templ` + `HinoService.AtualizarHino`): formulário com título, letra (textarea), créditos e checkbox "revisado". Número e coletânea vêm da rota (não editáveis). O formulário exibe o selo `.import-badge` ao lado do rótulo "Letra" para hinos importados não revisados. A letra é convertida para Title Case antes de salvar (`TitularLetra`, preservando indentação de refrões e texto já em caixa mista). Campos de texto vazios ou contendo apenas espaços em branco gravam `NULL` no banco. Revisão é **irreversível**: se o hino já é revisado, o checkbox fica `disabled` e o serviço mantém `Revisado=true` mesmo se o formulário o enviar desmarcado. A confirmação da revisão remove o selo de importado imediatamente. Uso de `templ.Component` + render via `Render(ctx, w)`; o POST segue PRG (303 → `/slides`).
+- **Quebras de linha**: o textarea do formulário pode enviar CRLF (`\r\n`). `TitularLetra` e `processors.ProcessarHino` normalizam para LF (`normalizeNewlines`), evitando linha em branco extra nos slides. Ordem: `\r\n` → `\n` primeiro, depois `\r` isolado.
+- **Blocos**: separados por linha em branco (`\n\s*\n`). No banco, o formato canônico indenta todas as linhas de refrão com exatamente 4 espaços (`    `) e mantém estrofes com 0 espaços no início da linha. Limites conservadores de legibilidade: até 64 caracteres por linha e até 10 linhas por bloco.
 - **Rodapé**: `N/total` no placeholder body de índice 10 (`sz="quarter"`) do template.
 - **Exibição por coletânea** (`services.textosSlides`): para coletâneas comuns (≠ Corinhos, código `COR`), o 1º slide mostra `Nome da Coletânea - Número` abaixo do título e os slides de conteúdo usam `NÚMERO{CÓDIGO} - TÍTULO` (ex.: `42CC - Antífona`) no topo direito; para Corinhos, o subtítulo fica vazio e os slides de conteúdo mantêm o título original. Os créditos do hino não são exibidos nos slides.
 - **Template `default.pptx`**: layouts `[1] TITULO` (ctrTitle + subTitle), `[2] ESTROFE`, `[3] REFRAO` (title + body idx=1 + body idx=10 para rodapé). **Não alterar esta estrutura** — o gerador depende dela. O slide de título do template (`ppt/slides/slide1.xml`) é reutilizado (injeção de texto); os slides de conteúdo são novos e referenciam os layouts 2/3 via `.rels`.
 - **Integridade do pacote**: para cada slide novo o gerador sincroniza 4 registros — `<Override>` no `[Content_Types].xml`, `<Relationship>` no `presentation.xml.rels`, `.rels` do slide→layout e `<p:sldId>` no `presentation.xml`. O teste `TestGeneratedPackageIntegrity` valida essa consistência para que o PowerPoint não peça reparo.
-- **Nomenclatura de saída**: `{CODIGO}-{NUM:03d}-{TITULO}.pptx` (título em maiúsculas).
+- **Nomenclatura de saída**: `{CODIGO}-{NUM:03d}-{TITULO}.pptx` (título em maiúsculas, espaços substituídos por underscores).
 - **Template**: único e fixo (`default.pptx`) — não há seleção de template.
+
+## Conformidade de Direitos Autorais e Propriedade Intelectual (MANDATÓRIO)
+
+> [!CAUTION]
+> **O repositório louvores-go é público no GitHub.** Nenhuma letra de hino, cântico ou composição poética sujeita a direitos autorais / propriedade intelectual pode ser comitada ou incluída no versionamento do git, sob nenhuma hipótese.
+
+Regras mandatórias e inegociáveis:
+1. **Proibição Absoluta de Letras no Git**: O código-fonte Go, testes unitários, testes de integração, documentação OpenAPI (`openapi.yaml`), exemplos, scripts e arquivos JSON/YAML/Markdown commitados NUNCA devem conter estrofes ou refrões de hinos reais protegidos.
+2. **Dados de Teste Exclusivamente Sintéticos**: Fixtures e asserções devem utilizar textos fictícios, curtos e neutros (ex.: `"Estrofe de teste\n\n    Refrão de teste"` ou `"Linha um\nLinha dois"`).
+3. **Blindagem do Diretório `data/`**: NADA dentro de `data/` pode ser adicionado ao git, com a **exceção única e estrita** do arquivo de template vazio `data/templates/default.pptx`. Bancos SQLite (`*.db`), arquivos JSON, planilhas CSV, dumps SQL (`*.sql`) e relatórios de revisão gerados permanecem estritamente fora do controle de versão.
+4. **Isolamento de Artefatos de Campanhas e ETL**: Planilhas sanitizadas (`sanitized.csv`), manifestos imutáveis com letras, recibos de proveniência e scripts SQL consolidados (`import.sql`) pertencem unicamente a diretórios de runtime temporários do sistema (`/var/folders/...`, `$RUN` efêmero fora do repositório) e NUNCA devem ser colocados em pastas versionadas.
+5. **Sem Dependência de Corpus Privado**: Diretórios locais do operador como `corpus/canticos` não são versionados e seus caminhos não devem constar em scripts ou documentação de produção.
 
 ## Ambiente
 
-`data/hinos.db`, `output/`, `logs/`, `.env`, dumps `*.sql` e `*.db-wal` estão no `.gitignore` — não commitar.
+`data/` (com exceção estrita de `data/templates/default.pptx`), `output/`, `logs/`, `.env`, dumps `*.sql`, `*.db*`, `corpus/`, `wayfinder/`, planilhas `*.csv`, `scripts/` locais e artefatos de ETL estão no `.gitignore` — não commitar.

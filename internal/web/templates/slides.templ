@@ -100,6 +100,9 @@ templ HinoCard(h models.Hino, codigo string) {
 			{ numeroHino(h) }
 		</span>
 		<span class="text-sm font-medium text-slate-800">{ h.Titulo }</span>
+		if mostrarSeloImportado(h) {
+			<span class="import-badge">Letra importada — confira</span>
+		}
 		<div class="mt-auto flex items-center justify-center gap-1 pt-1">
 			<a
 				class="inline-flex items-center justify-center rounded p-1 transition hover:bg-black/10"
@@ -127,13 +130,19 @@ templ HinoCard(h models.Hino, codigo string) {
 // sem letra (#FFB7B2), letra não revisada (#FFF5BA) ou revisado (#B5EAD7).
 func corFundoHino(h models.Hino) string {
 	switch {
-	case h.Letra == nil:
+	case models.SemConteudo(h.Letra):
 		return "#FFB7B2"
 	case !h.Revisado:
 		return "#FFF5BA"
 	default:
 		return "#B5EAD7"
 	}
+}
+
+// mostrarSeloImportado indica se o hino deve exibir o selo temporário de importação:
+// hino importado, ainda não revisado por humano e com conteúdo de letra.
+func mostrarSeloImportado(h models.Hino) bool {
+	return h.Importado && !h.Revisado && !models.SemConteudo(h.Letra)
 }
 
 // numeroHino formata a numeração em três dígitos com zeros à esquerda

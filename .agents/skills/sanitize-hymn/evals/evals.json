@@ -1,0 +1,43 @@
+{
+  "skill_name": "sanitize-hymn",
+  "how_to_run": "Run each eval prompt against an agent armed with this skill. Validate that the worker result satisfies the schema, operations allowlist, refrain indentation, and mathematical provenance gates verified by scripts/verify_provenance.py and scripts/campaign.py.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "vm-clean-single-stanza",
+      "prompt": "Sanitize the legacy slide text for hymn VM 340 with title header 'Vozes Missionárias 340 - Submissão', author credit line 'Letra e Música: Sarah Poulton Kalley', and two stanzas separated by slide marker '---'. Clean the text into database-ready format following the canonical format specifications.",
+      "expected_output": "Result object with state 'OK', operation 'title' covering the header line, operation 'credits' covering the attribution line with 'Sarah Poulton Kalley' preserved in creditos, operation 'slide_marker' covering '---', and blocks containing the stanzas in Title Case with 0 leading spaces.",
+      "assertions": [
+        "result.state == 'OK'",
+        "result.codigo == 'VM' and result.numero == 340",
+        "result.creditos == 'Sarah Poulton Kalley'",
+        "all(not ln.startswith(' ') for ln in result.letra.splitlines() if ln.strip())",
+        "len(verify(source, result)) == 0"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "cc-broken-refrain-spacing",
+      "prompt": "Sanitize the raw legacy slide for CC 15 containing cover title 'CANTOR CRISTÃO 15', stanza 1 with stanza number '1.', chorus marked with 'CORO:', and refrain lines with glued words 'GLÓRIADEUS NASALTURAS'. Ensure refrain formatting adheres to database standards.",
+      "expected_output": "Result object with state 'OK', operation 'title' covering header, operation 'stanza_number' covering '1.', operation 'refrain_label' covering 'CORO:', and refrain block indented with exactly 4 spaces on every line. Word gluing resolved without altering non-whitespace characters.",
+      "assertions": [
+        "result.state == 'OK'",
+        "result.codigo == 'CC' and result.numero == 15",
+        "all(ln.startswith('    ') and not ln.startswith('     ') for ln in result.letra.split('\\n\\n')[1].splitlines() if ln.strip())",
+        "len(verify(source, result)) == 0"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "hcc-authorship-biblical-conflict-and-siblings",
+      "prompt": "Process candidate group HCC 23 with two legacy source files: Source A contains 'Texto: Salmo 23 | Música: Lowell Mason' and Source B contains an uncredited variant marked IGNORAR. Resolve candidate identity, format lyrics, and ensure destination key constraints are respected.",
+      "expected_output": "Source A accepted as 'OK' with composer 'Lowell Mason' preserved in creditos and structural evidence documented. Source B assigned state 'skip' with explanatory reason. At most 1 OK result produced for HCC 23.",
+      "assertions": [
+        "source_a_result.state == 'OK'",
+        "'Lowell Mason' in source_a_result.creditos",
+        "source_b_result.state in {'doubt', 'skip'}",
+        "len(source_b_result.reasons) > 0"
+      ]
+    }
+  ]
+}

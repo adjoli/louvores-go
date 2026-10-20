@@ -101,9 +101,9 @@ paths:
                 id: 123
                 coletanea_id: 1
                 numeracao: 42
-                titulo: Grande é o Senhor
-                letra: "Primeira estrofe...\n\n   Refrão indentado..."
-                creditos: 'Letra e música: autor desconhecido'
+                titulo: Grandioso Pai
+                letra: "Primeira estrofe de teste,\nCom versos neutros de exemplo.\n\n    Refrão de teste com quatro espaços,\n    Exemplo para documentação da API."
+                creditos: Autor Fictício | Melodia de Teste
                 revisado: true
         '400':
           description: O número não é um inteiro válido.
@@ -349,16 +349,21 @@ components:
           example: 42
         titulo:
           type: string
+          example: Grandioso Pai
         letra:
           type: string
           nullable: true
-          description: Letra completa; null enquanto não cadastrada/revisada.
+          description: Letra completa em Title Case com refrão indentado por 4 espaços; null enquanto não cadastrada.
+          example: "Primeira estrofe de teste,\nCom versos neutros de exemplo.\n\n    Refrão de teste com quatro espaços,\n    Exemplo para documentação da API."
         creditos:
           type: string
           nullable: true
+          description: Créditos de autoria ou melodia; null quando ausente.
+          example: Autor Fictício | Melodia de Teste
         revisado:
           type: boolean
           description: true quando a letra passou por revisão humana.
+          example: true
 
     StatsColetanea:
       type: object

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -12,4 +13,6 @@ import (
 var (
 	ErrHinoNotFound      = fmt.Errorf("hino não encontrado: %w", sql.ErrNoRows)
 	ErrColetaneaNotFound = fmt.Errorf("coletânea não encontrada: %w", sql.ErrNoRows)
+	ErrDestinoAmbiguo    = errors.New("destino ambíguo no banco")
 )
+
