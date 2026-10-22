@@ -134,12 +134,23 @@ func (s *HinoService) AtualizarHino(
 		return nil, err
 	}
 
-	// A letra é normalizada para Title Case antes de persistir.
-	upd.Letra = titularLetra(upd.Letra)
-
 	hino.Titulo = upd.Titulo
-	hino.Letra = &upd.Letra
-	hino.Creditos = &upd.Creditos
+
+	if models.SemConteudo(&upd.Letra) {
+		hino.Letra = nil
+	} else {
+		// A letra é normalizada para Title Case antes de persistir.
+		letra := TitularLetra(upd.Letra)
+		hino.Letra = &letra
+	}
+
+	if models.SemConteudo(&upd.Creditos) {
+		hino.Creditos = nil
+	} else {
+		creditos := upd.Creditos
+		hino.Creditos = &creditos
+	}
+
 	if !hino.Revisado {
 		hino.Revisado = upd.Revisado
 	}
@@ -414,20 +425,22 @@ func titleCase(s string) string {
 	}
 
 	for i, w := range words {
-		words[i] = strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
+		words[i] = capitalizarPalavra(w)
 	}
 	return strings.Join(words, " ")
 }
 
-// titularLetra converte a letra do hino para Title Case antes de salvar,
+// TitularLetra converte a letra do hino para Title Case antes de salvar,
 // evitando que o texto fique todo em minúsculas ou todo em maiúsculas.
+// É exportada para que a ETL (cmd/etl) grave o texto idêntico ao da edição
+// web — mesma função, mesmos casos de borda, sem duplicação.
 //
 // A conversão é aplicada palavra a palavra apenas quando a linha está
 // uniformemente em minúsculas ou em maiúsculas; texto já com caixa mista é
 // preservado (não estraga nomes já corretamente capitalizados). A indentação
 // inicial é mantida, pois é usada para detectar refrões. Linhas em branco
 // (separadores de blocos) são preservadas.
-func titularLetra(s string) string {
+func TitularLetra(s string) string {
 	// Normaliza quebras de linha para LF antes de processar: o textarea do
 	// formulário pode enviar CRLF, e o "\r" restante contaminaria o Title Case
 	// e a separação de blocos (linha em branco extra nos slides).
@@ -456,7 +469,7 @@ func titularLinha(line string) string {
 
 	words := strings.Fields(trimmed)
 	for i, w := range words {
-		words[i] = strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
+		words[i] = capitalizarPalavra(w)
 	}
 	return indent + strings.Join(words, " ")
 }

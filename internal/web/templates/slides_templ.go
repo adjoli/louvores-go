@@ -318,43 +318,53 @@ func HinoCard(h models.Hino, codigo string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</span><div class=\"mt-auto flex items-center justify-center gap-1 pt-1\"><a class=\"inline-flex items-center justify-center rounded p-1 transition hover:bg-black/10\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</span> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if mostrarSeloImportado(h) {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<span class=\"import-badge\">Letra importada — confira</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<div class=\"mt-auto flex items-center justify-center gap-1 pt-1\"><a class=\"inline-flex items-center justify-center rounded p-1 transition hover:bg-black/10\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var11 templ.SafeURL
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs(fmt.Sprintf("/web/hinos/%s/%d/editar", codigo, valorNumero(h)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/slides.templ`, Line: 117, Col: 73}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/slides.templ`, Line: 109, Col: 73}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" title=\"Editar hino\" aria-label=\"Editar hino\"><img src=\"/static/edit.png\" alt=\"Editar hino\" class=\"h-7 w-7 object-contain\"></a> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" title=\"Editar hino\" aria-label=\"Editar hino\"><img src=\"/static/edit.png\" alt=\"Editar hino\" class=\"h-7 w-7 object-contain\"></a> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if h.Revisado {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<a class=\"inline-flex items-center justify-center rounded p-1 transition hover:bg-black/10\" href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<a class=\"inline-flex items-center justify-center rounded p-1 transition hover:bg-black/10\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var12 templ.SafeURL
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinURLErrs(fmt.Sprintf("/api/coletaneas/%s/hinos/%d/slides", codigo, valorNumero(h)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/slides.templ`, Line: 126, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/slides.templ`, Line: 118, Col: 85}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" title=\"Gerar slide\" aria-label=\"Gerar slide\"><img src=\"/static/ppt.png\" alt=\"Gerar slide\" class=\"h-7 w-7 object-contain\"></a>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" title=\"Gerar slide\" aria-label=\"Gerar slide\"><img src=\"/static/ppt.png\" alt=\"Gerar slide\" class=\"h-7 w-7 object-contain\"></a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -366,13 +376,19 @@ func HinoCard(h models.Hino, codigo string) templ.Component {
 // sem letra (#FFB7B2), letra não revisada (#FFF5BA) ou revisado (#B5EAD7).
 func corFundoHino(h models.Hino) string {
 	switch {
-	case h.Letra == nil:
+	case models.SemConteudo(h.Letra):
 		return "#FFB7B2"
 	case !h.Revisado:
 		return "#FFF5BA"
 	default:
 		return "#B5EAD7"
 	}
+}
+
+// mostrarSeloImportado indica se o hino deve exibir o selo temporário de importação:
+// hino importado, ainda não revisado por humano e com conteúdo de letra.
+func mostrarSeloImportado(h models.Hino) bool {
+	return h.Importado && !h.Revisado && !models.SemConteudo(h.Letra)
 }
 
 // numeroHino formata a numeração em três dígitos com zeros à esquerda

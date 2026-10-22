@@ -295,8 +295,8 @@ func TestTitularLetra(t *testing.T) {
 		},
 		{
 			name: "caixa mista preservada",
-			in:   "Grandioso és Tu, Senhor",
-			want: "Grandioso és Tu, Senhor",
+			in:   "Grande É a Esperança, Ó Irmãos",
+			want: "Grande É a Esperança, Ó Irmãos",
 		},
 		{
 			name: "linhas em branco preservadas",
@@ -313,11 +313,16 @@ func TestTitularLetra(t *testing.T) {
 			in:   "primeiro\r\n\r\n    refrão santo",
 			want: "Primeiro\n\n    Refrão Santo",
 		},
+		{
+			name: "tudo em maiúsculas com acentos unicode e pontuação inicial",
+			in:   "“Ó VINDE ADORAR”",
+			want: "“Ó Vinde Adorar”",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := titularLetra(tt.in); got != tt.want {
-				t.Errorf("titularLetra(%q) = %q, esperado %q", tt.in, got, tt.want)
+			if got := TitularLetra(tt.in); got != tt.want {
+				t.Errorf("TitularLetra(%q) = %q, esperado %q", tt.in, got, tt.want)
 			}
 		})
 	}
@@ -424,3 +429,77 @@ func TestAtualizarHinoNaoEncontrado(t *testing.T) {
 		t.Fatalf("erro = %v, esperado %v", err, repository.ErrColetaneaNotFound)
 	}
 }
+
+// TestAtualizarHinoCamposVaziosGravamNil garante que letra e créditos compostos apenas por
+// whitespace ASCII (ou vazios) são persistidos como nil (NULL no SQL).
+func TestAtualizarHinoCamposVaziosGravamNil(t *testing.T) {
+	svc := newTestHinoService(t)
+	ctx := context.Background()
+
+	// 1. Atualizar com espaços/tabs/quebras em branco
+	_, err := svc.AtualizarHino(ctx, "CC", 42, HinoUpdate{
+		Titulo:   "Título Sem Conteúdo",
+		Letra:    "   \t\r\n\v\f ",
+		Creditos: " \t ",
+	})
+	if err != nil {
+		t.Fatalf("AtualizarHino: %v", err)
+	}
+
+	hino, err := svc.ObterHino(ctx, "CC", 42)
+	if err != nil {
+		t.Fatalf("ObterHino: %v", err)
+	}
+	if hino.Letra != nil {
+		t.Errorf("hino.Letra = %q, esperado nil para whitespace ASCII", *hino.Letra)
+	}
+	if hino.Creditos != nil {
+		t.Errorf("hino.Creditos = %q, esperado nil para whitespace ASCII", *hino.Creditos)
+	}
+
+	// 2. Atualizar com strings vazias puras
+	_, err = svc.AtualizarHino(ctx, "CC", 42, HinoUpdate{
+		Titulo:   "Título Vazio",
+		Letra:    "",
+		Creditos: "",
+	})
+	if err != nil {
+		t.Fatalf("AtualizarHino vazio: %v", err)
+	}
+
+	hinoVazio, err := svc.ObterHino(ctx, "CC", 42)
+	if err != nil {
+		t.Fatalf("ObterHino: %v", err)
+	}
+	if hinoVazio.Letra != nil {
+		t.Errorf("hinoVazio.Letra = %q, esperado nil para string vazia", *hinoVazio.Letra)
+	}
+	if hinoVazio.Creditos != nil {
+		t.Errorf("hinoVazio.Creditos = %q, esperado nil para string vazia", *hinoVazio.Creditos)
+	}
+}
+
+// TestAtualizarHinoPreservaMixedCase garante que texto em caixa mista não é alterado.
+func TestAtualizarHinoPreservaMixedCase(t *testing.T) {
+	svc := newTestHinoService(t)
+	ctx := context.Background()
+
+	textoMisto := "Grande É o Senhor\n\n    Bendito Seja Deus"
+	_, err := svc.AtualizarHino(ctx, "CC", 42, HinoUpdate{
+		Titulo:   "Título Misto",
+		Letra:    textoMisto,
+		Creditos: "Letra e Música por Autor Fictício",
+	})
+	if err != nil {
+		t.Fatalf("AtualizarHino: %v", err)
+	}
+
+	hino, err := svc.ObterHino(ctx, "CC", 42)
+	if err != nil {
+		t.Fatalf("ObterHino: %v", err)
+	}
+	if hino.Letra == nil || *hino.Letra != textoMisto {
+		t.Errorf("hino.Letra = %v, esperado preservação exata de caixa mista %q", hino.Letra, textoMisto)
+	}
+}
+

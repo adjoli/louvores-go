@@ -60,13 +60,13 @@ func testColetanea() models.Coletanea {
 
 func testHino(coletaneaID int64) models.Hino {
 	numeracao := 1
-	letra := "Grandioso és Tu, Senhor."
-	creditos := "Autor desconhecido"
+	letra := "Primeira estrofe de teste."
+	creditos := "Autor de Teste"
 
 	return models.Hino{
 		ColetaneaID: coletaneaID,
 		Numeracao:   &numeracao,
-		Titulo:      "Grandioso És Tu",
+		Titulo:      "Hino de Teste",
 		Letra:       &letra,
 		Creditos:    &creditos,
 		Revisado:    true,

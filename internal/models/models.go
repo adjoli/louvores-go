@@ -30,4 +30,23 @@ type Hino struct {
 	Letra       *string `json:"letra"`
 	Creditos    *string `json:"creditos"`
 	Revisado    bool    `json:"revisado"`
+	Importado   bool    `json:"-"`
+}
+
+// SemConteudo verifica se o ponteiro de string é nulo ou composto apenas por
+// whitespace ASCII (espaço, \t, \n, \r, \v, \f).
+// NBSP (U+00A0) e outros caracteres não ASCII não são considerados vazios.
+func SemConteudo(s *string) bool {
+	if s == nil {
+		return true
+	}
+	for i := 0; i < len(*s); i++ {
+		switch (*s)[i] {
+		case ' ', '\t', '\n', '\r', '\v', '\f':
+			continue
+		default:
+			return false
+		}
+	}
+	return true
 }

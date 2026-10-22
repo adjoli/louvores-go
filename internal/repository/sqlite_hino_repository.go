@@ -10,7 +10,7 @@ import (
 
 // hinoCols lista as colunas da tabela hino usadas nos SELECTs — mantidas em
 // um único lugar para que a consulta e o Scan nunca diverjam.
-const hinoCols = "id, coletanea_id, numeracao, titulo, letra, creditos, revisado"
+const hinoCols = "h.id, h.coletanea_id, h.numeracao, h.titulo, h.letra, h.creditos, h.revisado, EXISTS(SELECT 1 FROM import_log l WHERE l.hino_id = h.id AND l.revertido_em IS NULL) AS importado"
 
 // rowScanner é a interface pequena satisfeita implicitamente tanto por
 // *sql.Row quanto por *sql.Rows, permitindo que scanHino sirva às consultas
@@ -33,6 +33,7 @@ func scanHino(row rowScanner) (*models.Hino, error) {
 		&hino.Letra,
 		&hino.Creditos,
 		&hino.Revisado,
+		&hino.Importado,
 	); err != nil {
 		return nil, err
 	}
@@ -91,7 +92,7 @@ func (r *SQLiteHinoRepository) FindByID(
 ) (*models.Hino, error) {
 	row := r.db.QueryRowContext(
 		ctx,
-		"SELECT "+hinoCols+" FROM hino WHERE id = ?",
+		"SELECT "+hinoCols+" FROM hino h WHERE h.id = ?",
 		id,
 	)
 
@@ -113,7 +114,7 @@ func (r *SQLiteHinoRepository) List(
 ) ([]models.Hino, error) {
 	rows, err := r.db.QueryContext(
 		ctx,
-		"SELECT "+hinoCols+" FROM hino ORDER BY id",
+		"SELECT "+hinoCols+" FROM hino h ORDER BY h.id",
 	)
 	if err != nil {
 		return nil, err
@@ -215,8 +216,8 @@ func (r *SQLiteHinoRepository) StatsPorColetanea(
 		ctx,
 		`SELECT c.codigo, c.titulo,
 		        COUNT(h.id) AS total,
-		        COUNT(h.letra) AS com_letra,
-		        COALESCE(SUM(CASE WHEN h.revisado = 1 THEN 1 ELSE 0 END), 0) AS revisados
+		        COALESCE(SUM(CASE WHEN (h.letra IS NOT NULL AND trim(h.letra, char(9)||char(10)||char(11)||char(12)||char(13)||char(32)) != '') THEN 1 ELSE 0 END), 0) AS com_letra,
+		        COALESCE(SUM(CASE WHEN h.revisado = 1 AND h.letra IS NOT NULL AND trim(h.letra, char(9)||char(10)||char(11)||char(12)||char(13)||char(32)) != '' THEN 1 ELSE 0 END), 0) AS revisados
 		 FROM coletanea c
 		 JOIN hino h ON h.coletanea_id = c.id
 		 GROUP BY c.codigo, c.titulo
@@ -254,7 +255,7 @@ func (r *SQLiteHinoRepository) ListByColetanea(
 ) ([]models.Hino, error) {
 	rows, err := r.db.QueryContext(
 		ctx,
-		"SELECT "+hinoCols+" FROM hino WHERE coletanea_id = ? ORDER BY numeracao",
+		"SELECT "+hinoCols+" FROM hino h WHERE h.coletanea_id = ? ORDER BY h.numeracao",
 		coletaneaID,
 	)
 	if err != nil {
@@ -312,7 +313,7 @@ func (r *SQLiteHinoRepository) FindByNumero(
 ) (*models.Hino, error) {
 	row := r.db.QueryRowContext(
 		ctx,
-		"SELECT "+hinoCols+" FROM hino WHERE coletanea_id = ? AND numeracao = ?",
+		"SELECT "+hinoCols+" FROM hino h WHERE h.coletanea_id = ? AND h.numeracao = ?",
 		coletaneaID,
 		numero,
 	)

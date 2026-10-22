@@ -2,9 +2,16 @@
 *.exe
 *.test
 *.out
-louvores
+/louvores
+/etl
 
 docs/
+
+# Blindagem estrita do diretório data/ (apenas o template PPTX padrão é versionado)
+/data/*
+!/data/templates/
+/data/templates/*
+!/data/templates/default.pptx
 
 # Banco e dados gerados
 *.db
@@ -12,11 +19,22 @@ docs/
 *.db-shm
 *.db-wal
 
+# Prevenção de vazamento de dados, letras, planilhas e scripts ad-hoc
+scripts/
+*.sql
+*.csv
+*.tsv
+*.json
+!.agents/skills/sanitize-hymn/evals/evals.json
 
 # Saída e logs
 output/
 logs/
+corpus/
+wayfinder/
 
 # Ambiente
 .env
 .vscode
+__pycache__/
+*.pyc

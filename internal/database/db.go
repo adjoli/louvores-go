@@ -17,7 +17,9 @@
 package database
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -111,9 +113,91 @@ func OpenRemote(url, authToken string) (*sql.DB, error) {
 
 // Migrate aplica o schema (DDL idempotente) na conexão informada. Pode ser
 // chamado em qualquer ordem e quantas vezes for necessário.
+// É transacional: aplica schema base, schema de importação, garante índice único
+// sem duplicatas e valida o shape do banco antes de commitar.
 func Migrate(conn *sql.DB) error {
-	if _, err := conn.Exec(schema); err != nil {
-		return fmt.Errorf("aplicar schema: %w", err)
+	ctx := context.Background()
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("iniciar transação de migração: %w", err)
 	}
+	defer tx.Rollback()
+
+	// 1. DDL base do sistema
+	if _, err := tx.ExecContext(ctx, schema); err != nil {
+		return fmt.Errorf("aplicar schema base: %w", err)
+	}
+
+	// 2. DDL auditável de importação
+	if _, err := tx.ExecContext(ctx, ImportSchemaSQL()); err != nil {
+		return fmt.Errorf("aplicar schema de import: %w", err)
+	}
+
+	// 3. Alinhar índice único hino(coletanea_id, numeracao) de forma aditiva e não destrutiva
+	if err := alinharIndiceUnico(ctx, tx); err != nil {
+		return fmt.Errorf("alinhar índice único: %w", err)
+	}
+
+	// 4. Validar shape do schema após DDL
+	if err := validarImportSchemaInternal(ctx, tx, false); err != nil {
+		return fmt.Errorf("validar shape do schema migrado: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit da migração: %w", err)
+	}
+
+	return nil
+}
+
+func alinharIndiceUnico(ctx context.Context, tx *sql.Tx) error {
+	var temEquivalente, nomeIncompativel bool
+	err := tx.QueryRowContext(ctx, `
+		WITH equivalentes AS (
+			SELECT name FROM pragma_index_list('hino') il
+			WHERE il.[unique] = 1 AND il.partial = 0
+			AND (SELECT COUNT(*) FROM pragma_index_info(il.name)) = 2
+			AND (SELECT name FROM pragma_index_info(il.name) WHERE seqno = 0) = 'coletanea_id'
+			AND (SELECT name FROM pragma_index_info(il.name) WHERE seqno = 1) = 'numeracao'
+		)
+		SELECT EXISTS (SELECT 1 FROM equivalentes), EXISTS (
+			SELECT 1 FROM sqlite_master
+			WHERE type = 'index' AND name = 'idx_hino_coletanea_num_unique_v1'
+			AND name NOT IN (SELECT name FROM equivalentes)
+		)
+	`).Scan(&temEquivalente, &nomeIncompativel)
+	if err != nil {
+		return fmt.Errorf("verificar índice único existente: %w", err)
+	}
+	if nomeIncompativel {
+		return fmt.Errorf("índice idx_hino_coletanea_num_unique_v1 já existe com definição incompatível")
+	}
+
+	if temEquivalente {
+		return nil
+	}
+
+	// Preflight de duplicatas antes de criar índice único
+	var colID, num, count int
+	err = tx.QueryRowContext(ctx, `
+		SELECT coletanea_id, numeracao, COUNT(*)
+		FROM hino
+		WHERE numeracao IS NOT NULL
+		GROUP BY coletanea_id, numeracao
+		HAVING COUNT(*) > 1
+		LIMIT 1
+	`).Scan(&colID, &num, &count)
+
+	if err == nil {
+		return fmt.Errorf("banco contém duplicatas para coletanea_id=%d numeracao=%d (total=%d): abortando criação do índice único", colID, num, count)
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("preflight de duplicatas: %w", err)
+	}
+
+	// Criar o novo índice único sem apagar o índice legado
+	if _, err := tx.ExecContext(ctx, "CREATE UNIQUE INDEX idx_hino_coletanea_num_unique_v1 ON hino (coletanea_id, numeracao);"); err != nil {
+		return fmt.Errorf("criar índice único idx_hino_coletanea_num_unique_v1: %w", err)
+	}
+
 	return nil
 }

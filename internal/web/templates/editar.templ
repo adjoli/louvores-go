@@ -48,7 +48,12 @@ templ editarForm(hino models.Hino, codigo string) {
 		</div>
 
 		<div>
-			<label for="letra" class="mb-1 block text-sm font-medium text-slate-700">Letra</label>
+			<div class="mb-1 flex items-center gap-2">
+				<label for="letra" class="block text-sm font-medium text-slate-700">Letra</label>
+				if mostrarSeloImportado(hino) {
+					<span class="import-badge">Letra importada — confira</span>
+				}
+			</div>
 			<textarea
 				id="letra"
 				name="letra"
